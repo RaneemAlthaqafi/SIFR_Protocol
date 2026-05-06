@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: "SIFR v0.1 Research Prototype"
+message: "If you use this prototype, please cite the accompanying SIFR v0.1 paper draft."
+type: software
+authors:
+  - family-names: "One"
+    given-names: "Author"
+  - family-names: "Two"
+    given-names: "Author"
+version: "0.1.0"
+date-released: "2026-05-07"
+license: "MIT"

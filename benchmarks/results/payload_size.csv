@@ -1,0 +1,6 @@
+case,bytes,overhead_vs_plain
+plain_json_action,53,1.0
+sifr_unsigned_action,257,4.8491
+sifr_signed_action,411,7.7547
+tensor_json_list,7642,144.1887
+tensor_base64_binary,2214,41.7736

@@ -1,0 +1,32 @@
+[
+  {
+    "case": "authorized_action",
+    "passed": true,
+    "error": null
+  },
+  {
+    "case": "unauthorized_action",
+    "passed": false,
+    "error": "UNAUTHORIZED_ACTION"
+  },
+  {
+    "case": "expired_capability",
+    "passed": false,
+    "error": "EXPIRED_CAPABILITY"
+  },
+  {
+    "case": "tampered_capability",
+    "passed": false,
+    "error": "signature verification failed"
+  },
+  {
+    "case": "over_budget_capability",
+    "passed": false,
+    "error": "CALL_BUDGET_EXCEEDED"
+  },
+  {
+    "case": "wrong_subject",
+    "passed": false,
+    "error": "WRONG_SUBJECT"
+  }
+]
