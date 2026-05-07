@@ -3,25 +3,28 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
-import json
-from typing import Any
+from typing import Any, Union
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat, NoEncryption
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
 
+from .canonical import _without_signature, canonical_json, message_to_canonical_bytes
 from .errors import SignatureError
+from .keyring_iface import KeyResolver
 
-
-def _without_signature(obj: dict[str, Any]) -> dict[str, Any]:
-    clone = copy.deepcopy(obj)
-    clone.pop("signature", None)
-    return clone
-
-
-def message_to_canonical_bytes(message: dict[str, Any]) -> bytes:
-    unsigned = _without_signature(message)
-    return json.dumps(unsigned, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+__all__ = [
+    "_without_signature",
+    "canonical_json",
+    "message_to_canonical_bytes",
+    "sha256_cid",
+    "generate_keypair",
+    "public_key_to_b64",
+    "public_key_from_b64",
+    "private_key_to_b64",
+    "sign_message",
+    "verify_message",
+]
 
 
 def sha256_cid(message: dict[str, Any]) -> str:
@@ -58,10 +61,20 @@ def sign_message(message: dict[str, Any], private_key: Ed25519PrivateKey, kid: s
     return signed
 
 
-def verify_message(message: dict[str, Any], public_key: Ed25519PublicKey) -> bool:
+def verify_message(
+    message: dict[str, Any],
+    key_or_resolver: Union[Ed25519PublicKey, KeyResolver],
+) -> bool:
     sig = message.get("signature")
     if not isinstance(sig, dict) or sig.get("alg") != "Ed25519" or not sig.get("value"):
         raise SignatureError("missing or unsupported signature")
+    if isinstance(key_or_resolver, Ed25519PublicKey):
+        public_key = key_or_resolver
+    else:
+        kid = sig.get("kid")
+        if not kid:
+            raise SignatureError("signature missing kid; required for resolver-based verification")
+        public_key = key_or_resolver.resolve(kid)
     try:
         public_key.verify(base64.b64decode(sig["value"]), message_to_canonical_bytes(message))
         return True

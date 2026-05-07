@@ -3,18 +3,9 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
-from abc import ABC, abstractmethod
 from typing import Any
 
-
-class Transport(ABC):
-    @abstractmethod
-    async def send(self, message: dict[str, Any]) -> None:
-        ...
-
-    @abstractmethod
-    async def recv(self) -> dict[str, Any]:
-        ...
+from ._base import Transport
 
 
 class LocalTransport(Transport):
