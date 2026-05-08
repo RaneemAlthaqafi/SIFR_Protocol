@@ -347,6 +347,15 @@ Loopback RTT for sign+verify+DAG over LocalTransport is 0.20 ms; over QUIC the s
 \footnotesize{Source: \texttt{benchmarks/results/adversary\_rejection.json}.}
 \end{table}
 
+Figure~\ref{fig:adversary} visualizes the same data on a log-scale axis, color-coded by rejecting error class. The slowest path (replay, 2.4 ms) subsumes one full authorize+execute round; the fastest (WASM-without-grant, 2.2 us) returns before any transport, signature, or runtime work happens.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/benchmark_adversary.png}
+\caption{Network adversary rejection latencies, mean of 200 trials, log scale. Color encodes the raised error class.}
+\label{fig:adversary}
+\end{figure}
+
 This is a controlled adversary evaluation under the v0.2 trust assumptions. It is not a fuzz test, a penetration test, or a survey of all possible attacks.
 
 \subsection{TLA+ Formal Model}
@@ -401,7 +410,14 @@ The companion test \texttt{tests/test\_secure\_flow.py} subprocess-launches the 
 \section{Discussion}
 The prototype demonstrates that a compact vertical slice can bind communication semantics, signatures, capabilities, tool execution, and audit lineage. This is the main value of SIFR v0.1: not that the protocol is complete, but that the implementation makes a research claim testable. A reviewer can run the demo, tamper with frames, expire grants, exceed budgets, remove DAG parents, regenerate figures, and inspect the resulting behavior.
 
-The v0.2 hardening converts each ``Future'' entry from the v0.1 limitations table into ``Tested'' with cited code, tests, benchmarks, and (in the case of authorization invariants) a model-checked TLA+ artifact. Concrete numbers: the v0.2 demo exchanges seven SIFR messages over a real QUIC stream with sub-millisecond per-message overhead at the application layer; the WASM calculator runs in $\sim$113 $\mu$s warm and produces an audit fuel-consumption counter that distinguishes WASM execution from a Python fall-through; revocation lookups are $\sim$0.3 $\mu$s regardless of registry size; and the 11-attack adversary suite shows reject latencies bounded by 2.4 ms even for the slowest path (replay, which subsumes a legitimate authorize+execute round).
+The v0.2 hardening converts each ``Future'' entry from the v0.1 limitations table into ``Tested'' with cited code, tests, benchmarks, and (in the case of authorization invariants) a model-checked TLA+ artifact. Concrete numbers: the v0.2 demo exchanges seven SIFR messages over a real QUIC stream with sub-millisecond per-message overhead at the application layer; the WASM calculator runs in $\sim$113 $\mu$s warm and produces an audit fuel-consumption counter that distinguishes WASM execution from a Python fall-through; revocation lookups are $\sim$0.3 $\mu$s regardless of registry size; and the 11-attack adversary suite shows reject latencies bounded by 2.4 ms even for the slowest path (replay, which subsumes a legitimate authorize+execute round). Figure~\ref{fig:v01vs02} summarizes the artifact-level capability addition.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/benchmark_v0_1_vs_v0_2.png}
+\caption{Capability addition from v0.1 to v0.2. Left: test-suite size (27 $\to$ 137). Right: layer-level latencies measured in v0.2 -- none of these operations existed in v0.1.}
+\label{fig:v01vs02}
+\end{figure}
 
 The results also show costs and trade-offs. Signed frames are larger than plain JSON actions. Ed25519 verification is slower than signing in the measured environment. DAG append adds additional local overhead. These costs may be acceptable for integrity-sensitive agent workflows, but the current evaluation is too small to justify broad performance claims. The TensorFrame experiment demonstrates encoding-size differences only; it does not demonstrate privacy, semantic quality, compression efficiency, or safe KV-cache sharing.
 
