@@ -1,0 +1,57 @@
+[
+  {
+    "attack": "01_tamper_body",
+    "expected": "SignatureError",
+    "avg_reject_us": 201.9
+  },
+  {
+    "attack": "02_replay",
+    "expected": "ReplayError",
+    "avg_reject_us": 2396.6
+  },
+  {
+    "attack": "03_expired_grant",
+    "expected": "UnauthorizedAction(EXPIRED)",
+    "avg_reject_us": 792.9
+  },
+  {
+    "attack": "04_revoked_grant",
+    "expected": "UnauthorizedAction(REVOKED)",
+    "avg_reject_us": 527.1
+  },
+  {
+    "attack": "05_swap_sender_id",
+    "expected": "SignatureError",
+    "avg_reject_us": 202.5
+  },
+  {
+    "attack": "06_swap_kid",
+    "expected": "SignatureError",
+    "avg_reject_us": 208.8
+  },
+  {
+    "attack": "07_unauthorized_action",
+    "expected": "UnauthorizedAction(UNAUTHORIZED)",
+    "avg_reject_us": 494.0
+  },
+  {
+    "attack": "08_malformed_frame",
+    "expected": "MessageValidationError",
+    "avg_reject_us": 10.7
+  },
+  {
+    "attack": "09_drop_parent_dag",
+    "expected": "AuditDAGError",
+    "avg_reject_us": 227.3
+  },
+  {
+    "attack": "10_oversized_payload",
+    "expected": "UnauthorizedAction(PAYLOAD_BUDGET)",
+    "avg_reject_us": 545.6
+  },
+  {
+    "attack": "11_wasm_without_grant",
+    "expected": "CapabilityError",
+    "avg_reject_us": 2.2
+  }
+]

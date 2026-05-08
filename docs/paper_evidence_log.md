@@ -114,3 +114,68 @@ Template per entry:
 
 **Integration demo:** `examples/demo_secure_quic_wasm_did_flow.py` — `WASM calculator executed: OK` line flipped.
 **Tests:** all 115 tests pass (27 v0.1 + 36 Phase 1 + 39 Phase 2 + 13 Phase 3).
+
+## QUIC transport — 2026-05-08
+
+**Code:** `sifr/transport/quic.py` (`QuicTransport` over aioquic 1.3 with single-stream length-prefixed JSON framing, ALPN `sifr/0.2`, exposes `quic_connection` for trap-acceptance), `sifr/transport/_certs.py` (test-only RSA-2048 self-signed cert generator).
+**Tests:** `tests/test_quic_transport.py` — 5 tests: handshake-and-bidirectional-roundtrip, **uses-real-aioquic** (asserts `isinstance(quic_connection, aioquic.quic.connection.QuicConnection)` AND `negotiated_alpn == "sifr/0.2"` AND `original_destination_connection_id` non-empty -- the trap-acceptance check that this is real QUIC, not a TCP look-alike), multiple-messages, bad-CA-rejected, peer-disconnect-recv-raises.
+**Demo:** `examples/demo_quic_two_agents.py` — minimal QUIC echo with signed messages.
+**Claim made:** real QUIC traffic (aioquic-validated, ALPN-negotiated, version 1) on loopback for tests and demos.
+**Claim NOT made:** production-grade certificate handling, IP-level packet capture verification, multi-stream load tests.
+
+## Network adversary evaluation — 2026-05-08
+
+**Code:** `tests/test_network_adversary.py` — 11 controlled attack tests, parameterized by attack class. Each test asserts:
+1. The exact rejection error class.
+2. `WasmToolRunner.last_invocation_evidence` unchanged after rejection (proves the attack never reached the tool).
+
+The 11 attacks:
+| # | Attack | Expected error |
+|---|---|---|
+| 01 | Tamper signed body | `SignatureError` |
+| 02 | Replay old message | `ReplayError` |
+| 03 | Use expired grant | `UnauthorizedAction(EXPIRED_CAPABILITY)` |
+| 04 | Use revoked grant | `UnauthorizedAction(REVOKED_CAPABILITY)` |
+| 05 | Swap `sender_id` | `SignatureError` |
+| 06 | Swap `kid` | `SignatureError` |
+| 07 | Unauthorized action name | `UnauthorizedAction(UNAUTHORIZED_ACTION)` |
+| 08 | Malformed frame | `MessageValidationError` |
+| 09 | Drop parent DAG node | `AuditDAGError` |
+| 10 | Oversized payload | `UnauthorizedAction(PAYLOAD_BUDGET_EXCEEDED)` |
+| 11 | WASM execution without grant | `CapabilityError` |
+
+**Demo:** `examples/demo_adversary_cases.py` — runs the suite and prints PASS/FAIL summary.
+**Benchmark:** `benchmarks/bench_adversary_rejection.py` -> `benchmarks/results/adversary_rejection.json`. Reject latency ranges: 2.2 us (no-grant) to 2.4 ms (replay -- includes one legitimate authorize+WASM call).
+**Claim made:** controlled adversary evaluation across 11 enumerated attack classes; each rejection is automated and asserted to land at the correct layer with the correct error.
+**Claim NOT made:** full penetration test, fuzz testing, formal coverage of the attack surface.
+
+## Integration vertical slice — 2026-05-08
+
+**Code:** `examples/demo_secure_quic_wasm_did_flow.py` — full v0.2 vertical slice. Two agents (Alice client, Bob server) connect over real QUIC with self-signed certs; Bob issues a VC-inspired credential; Alice verifies it; Alice signs an Action; Bob runs replay check, revocation check, authorization, then dispatches the WASM calculator; Bob signs the Observation; both sides build an audit DAG which verifies. The demo prints exactly the spec'd `OK` lines and exits 0.
+**Test:** `tests/test_secure_flow.py::test_secure_flow_demo_runs_to_completion` — runs the demo as a subprocess, asserts every required `OK` line is present in stdout AND exit code is 0.
+**Output (Phase 4):**
+```
+=== SIFR v0.2 Secure Flow Demo ===
+DID resolution: OK
+QUIC session: OK
+Hello signature: OK
+Capability credential: OK
+Replay check: OK
+Revocation check: OK
+Action authorized: OK
+WASM calculator executed: OK
+Observation verified: OK
+Audit DAG integrity: OK
+Formal model artifacts: PENDING
+Result: 5
+Demo completed successfully (formal model artifacts pending Phase 5).
+```
+**Benchmark:** `benchmarks/bench_quic_latency.py` -> `benchmarks/results/quic_latency.csv`. Sign+verify+DAG round-trip:
+- LocalTransport: ~0.20 ms
+- HTTP-JSON serialization baseline: ~0.21 ms
+- QUIC (loopback): ~0.94 ms
+QUIC is ~5x slower than in-process queues, attributable to handshake amortization, framing, and asyncio scheduling.
+
+## Phase 4 integration — 2026-05-08
+
+**Tests:** all 132 tests pass (27 v0.1 + 36 Phase 1 + 39 Phase 2 + 13 Phase 3 + 5 QUIC + 11 adversary + 1 secure_flow).
