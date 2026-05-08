@@ -18,7 +18,9 @@ Email: author@example.edu}}
 \maketitle
 
 \begin{abstract}
-Current AI-agent systems rely heavily on web-era protocols and ad hoc message formats, including HTTP APIs, JSON-RPC, Server-Sent Events, WebSockets, plain JSON function calls, and free-form natural language messages. These mechanisms are useful and widely deployed, but they were not designed as a native substrate for autonomous agents that must prove identity, exchange constrained capabilities, invoke tools safely, and preserve auditable reasoning and execution lineage. This paper presents SIFR, Secure Interchange for Federated Reasoning, as a compact feasibility prototype for structured and verifiable AI-agent communication, not as a production secure protocol. SIFR v0.1 combines signed typed frames, explicit capability grants, and a content-addressed audit DAG. We implement a Python prototype that demonstrates a complete two-agent vertical slice: Hello, CapabilityOffer, signed CapabilityGrant, signed Action, capability verification, calculator tool execution, signed Observation, and audit-DAG verification. In local microbenchmarks, a signed SIFR action is 411 bytes versus 53 bytes for a plain JSON action; Ed25519 signing averages 0.0314 ms and verification averages 0.0615 ms at 10000 messages; and sign+verify+DAG latency averages 0.1104 ms. The prototype demonstrates feasibility and clarifies the research gap, but it is not production-ready: QUIC transport, WASM isolation, DID resolution, Verifiable Credentials, revocation, replay protection, and real KV-cache sharing are future work.
+Current AI-agent systems rely heavily on web-era protocols and ad hoc message formats, including HTTP APIs, JSON-RPC, Server-Sent Events, WebSockets, plain JSON function calls, and free-form natural language messages. These mechanisms are useful and widely deployed, but they were not designed as a native substrate for autonomous agents that must prove identity, exchange constrained capabilities, invoke tools safely, and preserve auditable reasoning and execution lineage. This paper presents SIFR, Secure Interchange for Federated Reasoning, in two iterations. SIFR v0.1 was a feasibility prototype combining signed typed frames, explicit capability grants, and a content-addressed audit DAG, with a complete two-agent vertical slice over a local in-process transport. v0.1 honestly listed QUIC transport, WASM isolation, DID resolution, Verifiable Credentials, revocation, replay protection, and formal analysis as future work.
+
+SIFR v0.2 promotes the prototype to a verified research artifact that implements and evaluates each of those layers. We add: encrypted-at-rest key management with rotation and revocation metadata (Argon2id KDF, AES-256-GCM with kid-bound AAD); DID resolution for did:web (over HTTP/HTTPS) and a local-only did:sifr method; VC-inspired capability credentials with full mutation defenses (no W3C VC compliance claimed); signed capability revocation with on-load signature re-verification; replay protection bound to (sender, session, message\_id) over a sliding timestamp window; sandboxed WASM tool execution via wasmtime with no WASI imports linked and per-call fuel limits; a real QUIC transport via aioquic with ALPN-negotiated connections; an 11-attack controlled adversary evaluation; and a TLA+ model of the capability authorization state machine, model-checked with TLC across 276{,}205 distinct states under 7 invariants. The end-to-end vertical slice runs over real QUIC and exits with the spec's expected output (\texttt{Result: 5}, \texttt{Demo completed successfully.}). The artifact reports v0.1 microbenchmarks (signed SIFR action 411 bytes vs 53 bytes plain JSON; Ed25519 sign 0.0314 ms; verify 0.0615 ms; sign+verify+DAG 0.1104 ms; all on Python 3.14.2, Windows 11) alongside v0.2 measurements (DID:sifr resolve 0.07 ms warm; QUIC RTT 0.94 ms; WASM warm 113 us; reject latency for the 11 attack classes 2 us-2.4 ms). We make explicit, auditable claims about what is implemented and tested, and what is NOT claimed: no W3C VC compliance, no cryptographic proof, no arbitrary-untrusted-code WASM safety, no production readiness.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -125,22 +127,30 @@ The artifact is organized as a Python package with examples, tests, benchmarks, 
 \caption{Implementation Status}
 \label{tab:implementation}
 \centering
-\begin{tabular}{lll}
+\begin{tabular}{llll}
 \toprule
-Component & Status & Evidence\\
+Component & v0.1 & v0.2 & Evidence\\
 \midrule
-Typed envelope & Implemented & \texttt{sifr/messages.py}\\
-Ed25519 signing & Implemented & \texttt{sifr/crypto.py}\\
-Capability grants & Implemented & \texttt{sifr/capabilities.py}\\
-Audit DAG & Implemented & \texttt{sifr/audit\_dag.py}\\
-Local transport & Implemented & \texttt{sifr/transport.py}\\
-TensorFrame encoding & Demo & \texttt{sifr/tensor.py}\\
-Calculator tool & Stub & \texttt{sifr/wasm\_runner.py}\\
-QUIC backend & Future & Not implemented\\
-WASM isolation & Future & Not implemented\\
-DID/VC stack & Future & Syntax only\\
+Typed envelope & Impl. & Impl. & \texttt{sifr/messages.py}\\
+Ed25519 signing & Impl. & Impl. & \texttt{sifr/crypto.py}\\
+Capability grants & Impl. & Impl.+R/R & \texttt{sifr/capabilities.py}\\
+Audit DAG & Impl. & Impl. & \texttt{sifr/audit\_dag.py}\\
+Local transport & Impl. & Impl. & \texttt{sifr/transport/local.py}\\
+TensorFrame encoding & Demo & Demo & \texttt{sifr/tensor.py}\\
+Calculator tool & Python stub & WASM (wasmtime) & \texttt{sifr/wasm\_runner.py}\\
+QUIC transport & Future & aioquic & \texttt{sifr/transport/quic.py}\\
+WASM isolation & Future & Sandboxed & \texttt{sifr/wasm\_runner.py}\\
+Key management & In-mem & Argon2id+AES-GCM & \texttt{sifr/key\_management.py}\\
+DID resolution & Strings only & did:web, did:sifr & \texttt{sifr/did/}\\
+Cap. credentials & N/A & VC-inspired & \texttt{sifr/credentials.py}\\
+Revocation & Future & Signed registry & \texttt{sifr/revocation.py}\\
+Replay protection & Future & Sliding window & \texttt{sifr/replay.py}\\
+Adversary eval & 5 inline & 11-attack suite & \texttt{tests/test\_network\_adversary.py}\\
+Formal model & None & TLA+, 7 invariants & \texttt{formal/sifr\_capability.tla}\\
 \bottomrule
 \end{tabular}
+\par\medskip
+\footnotesize{Impl.+R/R = original implementation extended with revocation and replay checks.}
 \end{table}
 
 \section{Security Model and Threat Analysis}
@@ -176,26 +186,29 @@ verify_dag(dag):
 \caption{Threat Handling in SIFR v0.1}
 \label{tab:threats}
 \centering
-\begin{tabular}{lll}
+\begin{tabular}{llll}
 \toprule
-Threat & v0.1 Mechanism & Status\\
+Threat & v0.1 & v0.2 mechanism & Status\\
 \midrule
-Payload tampering & Ed25519 verify & Tested\\
-Sender tampering & Signed sender field & Tested\\
-Wrong key & Public-key verify failure & Tested\\
-Unsigned message & Signature required & Tested\\
-Unauthorized action & Capability action check & Tested\\
-Wrong subject & Capability subject check & Tested\\
-Expired grant & UTC expiration check & Tested\\
-Over budget & Call counter & Tested\\
-DAG mutation & CID recomputation & Tested\\
-Missing parent & Parent lookup & Tested\\
-Replay & Message IDs only & Future\\
-Revocation & None & Future\\
-Prompt injection & Out of scope & Future\\
-Sandbox escape & Stub only & Future\\
+Payload tampering & Tested & Ed25519 verify & Tested\\
+Sender tampering & Tested & Signed sender field & Tested (attack 5)\\
+Wrong key (kid swap) & Tested & DID-resolved verify & Tested (attack 6)\\
+Unsigned message & Tested & Signature required & Tested\\
+Unauthorized action & Tested & Capability action check & Tested (attack 7)\\
+Wrong subject & Tested & Capability subject check & Tested\\
+Expired grant & Tested & UTC expiration check & Tested (attack 3)\\
+Over budget & Tested & Call counter + payload size & Tested (attack 10)\\
+DAG mutation & Tested & CID recomputation & Tested\\
+Missing parent & Tested & Parent lookup & Tested (attack 9)\\
+Replay & Future & (sender,session,msgid) cache & \textbf{Tested} (attack 2)\\
+Revocation & Future & Signed registry, on-load verify & \textbf{Tested} (attack 4)\\
+Sandbox escape & Stub & wasmtime, no WASI, fuel & \textbf{Tested} (attack 11)\\
+Malformed frame & Reject & Strict envelope validation & \textbf{Tested} (attack 8)\\
+Prompt injection & Out of scope & Out of scope & N/A\\
 \bottomrule
 \end{tabular}
+\par\medskip
+\footnotesize{The attack number references Table~\ref{tab:adversary} in Section~\ref{sec:hardening}.}
 \end{table}
 
 The prototype deliberately does not claim formal security. Signatures establish message integrity under the assumed public key, but do not establish trust by themselves. Capability grants authorize specific actions, but v0.1 lacks revocation, distributed state, concurrent budget reservations, and replay protection. The calculator tool is bounded because it performs only a structured addition operation; it is not evidence that arbitrary generated code can be safely executed.
@@ -278,30 +291,149 @@ The capability benchmark runs six cases: authorized action, unauthorized action,
 \label{fig:capability}
 \end{figure}
 
+\section{v0.2 Security Hardening}
+\label{sec:hardening}
+Section~\ref{sec:hardening} describes the v0.2 layers added on top of the v0.1 prototype. Each subsection cites the implementation file, the test file with positive and negative cases, and the trap-acceptance assertion that prevents an in-name-only implementation.
+
+\subsection{Encrypted Key Management}
+v0.2 stores private keys at rest in a passphrase-encrypted JSON file (\texttt{sifr/key\_management.py}). The file format binds an Argon2id-derived~\cite{biryukov2016argon2} AES-256-GCM key per keystore. The kid is bound as additional authenticated data on each entry, so swapping ciphertexts between two entries fails on decryption. Tests in \texttt{tests/test\_key\_management.py} include the trap-acceptance assertions \emph{file-does-not-contain-raw-private-key} and \emph{kid-AAD-binding-prevents-swap}. We do not claim HSM-grade isolation or enterprise PKI; the threat model is documented in \texttt{docs/key\_management.md}.
+
+\subsection{DID Resolution}
+v0.2 implements two DID methods behind a common \texttt{DidResolver} ABC (\texttt{sifr/did/}). \texttt{did:web}~\cite{didweb2024spec} fetches DID documents over HTTPS per the W3C method specification, with percent-encoded port handling. \texttt{did:sifr} reads documents from a local directory and is intended for tests and air-gapped scenarios. Both are exercised by an in-process loopback HTTP fixture (\texttt{tests/fixtures/did\_web\_server.py}) that proves did:web tests use real HTTP traffic. Trap-acceptance tests check kid-not-in-document, controller-mismatch, path-traversal, and id-mismatch reject paths. We do not claim W3C DID ecosystem interoperability beyond the supported \texttt{Ed25519VerificationKey2020} subset.
+
+\subsection{VC-Inspired Capability Credentials and Revocation}
+\texttt{sifr/credentials.py} implements signed credentials structured like W3C Verifiable Credentials (\texttt{@context}, \texttt{type}, \texttt{issuer}, \texttt{issuanceDate}, \texttt{expirationDate}, \texttt{credentialSubject}, \texttt{proof}). The proof is an \texttt{Ed25519Signature2020} over canonical JSON without the proof field. Trap-acceptance tests demonstrate that mutating \texttt{credentialSubject.id}, \texttt{expirationDate}, the embedded \texttt{capability.actions}, or \texttt{proof.proofValue} after signing all fail verification, and that the verification-method DID must match the issuer DID. We do NOT claim W3C VC compliance: there is no JSON-LD context processing and no URDNA2015 RDF normalization. The label is "VC-inspired signed credential."
+
+\texttt{sifr/revocation.py} implements a registry of signed \texttt{CapabilityRevocation} SIFR messages with optional JSONL persistence. Entries are re-verified on load, so tampering with a stored record fails reload. \texttt{sifr/capabilities.py:authorize\_action} consults the registry before authorization; a revoked grant raises \texttt{UnauthorizedAction("REVOKED\_CAPABILITY")} (attack 4 in Table~\ref{tab:adversary}).
+
+\subsection{Replay Protection}
+\texttt{sifr/replay.py} maintains a per-process cache keyed on \texttt{(sender\_id, session\_id, message\_id)} with a sliding timestamp window (default 5 minutes). A trap-acceptance test demonstrates that re-signing the same message with a different signature value still fails replay because the cache key does not include the signature. Optional SQLite persistence retains entries across restarts. Window-edge cases (stale, future, exact boundary) are tested.
+
+\subsection{WASM Tool Isolation}
+\texttt{sifr/wasm\_runner.py} replaces the v0.1 Python calculator stub with \texttt{wasmtime}~\cite{wasmtime}-based execution of \texttt{wasm/calculator/calculator.wat}. The runner does NOT link any WASI imports; modules importing \texttt{wasi\_snapshot\_preview1} fail to instantiate. Each call uses a fresh \texttt{Store} with a fixed fuel budget (default 1{,}000{,}000), bounding compute and trapping infinite loops. The committed module is WAT (text), not opaque \texttt{.wasm}, so reviewers can read the 13-line source.
+
+Trap-acceptance assertions in \texttt{tests/test\_wasm\_runner.py}: (i) a parity test of 8 input pairs proves Python and WASM produce bit-identical results; (ii) every successful call advances \texttt{last\_invocation\_evidence["fuel\_consumed"]} (a Python fall-through would never advance it); (iii) the \texttt{fs\_attempt.wat} fixture, which tries to import \texttt{path\_open}, fails to instantiate; (iv) the \texttt{looping.wat} fixture traps on fuel.
+
+\subsection{QUIC Transport}
+\texttt{sifr/transport/quic.py} provides a single-stream length-prefixed canonical-JSON transport over \texttt{aioquic}~\cite{aioquic} 1.3 with ALPN \texttt{sifr/0.2}. Self-signed cert generation for tests and demos is implemented in \texttt{sifr/transport/\_certs.py}; private keys are not committed. The trap-acceptance test asserts \texttt{isinstance(transport.quic\_connection, aioquic.quic.connection.QuicConnection)} AND \texttt{negotiated\_alpn == "sifr/0.2"} AND that a real \texttt{original\_destination\_connection\_id} was negotiated --- ruling out a TCP look-alike.
+
+Loopback RTT for sign+verify+DAG over LocalTransport is 0.20 ms; over QUIC the same workload takes 0.94 ms (\texttt{benchmarks/results/quic\_latency.csv}); the difference reflects QUIC handshake amortization, framing, and asyncio scheduling overhead.
+
+\subsection{Network Adversary Evaluation}
+\texttt{tests/test\_network\_adversary.py} encodes 11 controlled attacks. Each test asserts (a) the exact rejection error class and (b) that \texttt{WasmToolRunner.last\_invocation\_evidence} is unchanged after the rejection, proving the attack never reached the tool. Reject latencies (200 trials each, mean) are in Table~\ref{tab:adversary}. The replay attack is slow because it includes one legitimate authorize+WASM call before the replay attempt.
+
+\begin{table}[t]
+\caption{Network Adversary Rejection Latencies}
+\label{tab:adversary}
+\centering
+\begin{tabular}{rlr}
+\toprule
+\# & Attack and expected error & Mean reject ($\mu$s)\\
+\midrule
+1 & Tampered body $\to$ SignatureError & 202\\
+2 & Replay $\to$ ReplayError & 2397\\
+3 & Expired grant $\to$ UnauthorizedAction(EXPIRED) & 793\\
+4 & Revoked grant $\to$ UnauthorizedAction(REVOKED) & 527\\
+5 & Swap sender\_id $\to$ SignatureError & 203\\
+6 & Swap kid $\to$ SignatureError & 209\\
+7 & Unauthorized action $\to$ UnauthorizedAction(UNAUTH.) & 494\\
+8 & Malformed frame $\to$ MessageValidationError & 11\\
+9 & Drop parent DAG node $\to$ AuditDAGError & 227\\
+10 & Oversized payload $\to$ UnauthorizedAction(BUDGET) & 546\\
+11 & WASM execution without grant $\to$ CapabilityError & 2\\
+\bottomrule
+\end{tabular}
+\par\medskip
+\footnotesize{Source: \texttt{benchmarks/results/adversary\_rejection.json}.}
+\end{table}
+
+This is a controlled adversary evaluation under the v0.2 trust assumptions. It is not a fuzz test, a penetration test, or a survey of all possible attacks.
+
+\subsection{TLA+ Formal Model}
+\texttt{formal/sifr\_capability.tla} models the capability authorization state machine in TLA+~\cite{lamport2002tla}, checked with TLC~\cite{tlatools}: states \texttt{unissued} $\to$ \texttt{active} $\to$ \{\texttt{expired}, \texttt{revoked}\}; actions \texttt{Issue}, \texttt{Expire}, \texttt{Revoke}, \texttt{Consume}; replay set \texttt{(subject, message\_id)}; bounded budget. Seven invariants (Table~\ref{tab:invariants}) jointly express safety: no over-budget, wrong-subject, unauthorized-action, replayed, post-revocation, or post-expiration consume.
+
+\begin{table}[t]
+\caption{Formal Invariants and Their Implementation Witnesses}
+\label{tab:invariants}
+\centering
+\small
+\begin{tabular}{p{0.40\linewidth}p{0.50\linewidth}}
+\toprule
+TLA+ Invariant & Code witness (raises on violation)\\
+\midrule
+\texttt{NoOverBudgetConsume} & \texttt{authorize\_action} $\to$ \texttt{CALL\_BUDGET\_EXCEEDED}\\
+\texttt{NoWrongSubjectConsume} & \texttt{authorize\_action} $\to$ \texttt{WRONG\_SUBJECT}\\
+\texttt{NoUnauthorizedActionConsume} & \texttt{authorize\_action} $\to$ \texttt{UNAUTHORIZED\_ACTION}\\
+\texttt{NoReplayedConsume} & \texttt{ReplayCache.check\_and\_record} $\to$ \texttt{ReplayError}\\
+\texttt{NoConsumeAfterRevoke} & \texttt{authorize\_action} $\to$ \texttt{REVOKED\_CAPABILITY}\\
+\texttt{NoConsumeAfterExpire} & \texttt{authorize\_action} $\to$ \texttt{EXPIRED\_CAPABILITY}\\
+\texttt{TypeInvariant} & Static guarantee of the data model\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+TLC v2026.05.04 with 16 workers explored \textbf{276{,}205 distinct states} at depth 9 in 7 seconds against the bounded constants in \texttt{formal/MC.cfg} (\texttt{Caps=\{c1,c2\}}, \texttt{Subs=\{alice,bob\}}, \texttt{Acts=\{add,multiply\}}, \texttt{Msgs=\{m1,m2\}}, \texttt{MaxCalls=2}). TLC reports \emph{Model checking completed. No error has been found.} Output is committed at \texttt{formal/output/tlc\_output.txt}; \texttt{tests/test\_formal\_artifacts.py} parses it and skips with explicit instructions when no Java/TLC is available locally.
+
+We do NOT claim cryptographic proof, liveness verification, or implementation/specification equivalence. The model captures the spec of authorization; the trap-acceptance tests in \texttt{tests/test\_network\_adversary.py} are the bridge between spec and implementation.
+
+\subsection{End-to-End Vertical Slice}
+\texttt{examples/demo\_secure\_quic\_wasm\_did\_flow.py} runs the full v0.2 flow over real QUIC: two agents resolve each other's DID documents, establish a TLS-secured QUIC connection, exchange signed Hellos, the issuer (Bob) issues a VC-inspired credential, the subject (Alice) verifies it, Alice signs an Action, Bob runs replay+revocation+authorization checks, Bob runs the WASM calculator, Bob signs the Observation, both build an audit DAG, and the DAG verifies. The demo exits 0 with the spec's expected output:
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+=== SIFR v0.2 Secure Flow Demo ===
+DID resolution: OK
+QUIC session: OK
+Hello signature: OK
+Capability credential: OK
+Replay check: OK
+Revocation check: OK
+Action authorized: OK
+WASM calculator executed: OK
+Observation verified: OK
+Audit DAG integrity: OK
+Formal model artifacts: PRESENT
+Result: 5
+Demo completed successfully.
+\end{lstlisting}
+
+The companion test \texttt{tests/test\_secure\_flow.py} subprocess-launches the demo and asserts each required \texttt{OK} line is present and the exit code is 0.
+
 \section{Discussion}
 The prototype demonstrates that a compact vertical slice can bind communication semantics, signatures, capabilities, tool execution, and audit lineage. This is the main value of SIFR v0.1: not that the protocol is complete, but that the implementation makes a research claim testable. A reviewer can run the demo, tamper with frames, expire grants, exceed budgets, remove DAG parents, regenerate figures, and inspect the resulting behavior.
+
+The v0.2 hardening converts each ``Future'' entry from the v0.1 limitations table into ``Tested'' with cited code, tests, benchmarks, and (in the case of authorization invariants) a model-checked TLA+ artifact. Concrete numbers: the v0.2 demo exchanges seven SIFR messages over a real QUIC stream with sub-millisecond per-message overhead at the application layer; the WASM calculator runs in $\sim$113 $\mu$s warm and produces an audit fuel-consumption counter that distinguishes WASM execution from a Python fall-through; revocation lookups are $\sim$0.3 $\mu$s regardless of registry size; and the 11-attack adversary suite shows reject latencies bounded by 2.4 ms even for the slowest path (replay, which subsumes a legitimate authorize+execute round).
 
 The results also show costs and trade-offs. Signed frames are larger than plain JSON actions. Ed25519 verification is slower than signing in the measured environment. DAG append adds additional local overhead. These costs may be acceptable for integrity-sensitive agent workflows, but the current evaluation is too small to justify broad performance claims. The TensorFrame experiment demonstrates encoding-size differences only; it does not demonstrate privacy, semantic quality, compression efficiency, or safe KV-cache sharing.
 
 \section{Limitations}
-SIFR v0.1 is an early research prototype. It does not include a QUIC backend, WASM/WASI isolation, DID resolution, Verifiable Credential issuance or verification, grant revocation, replay cache, distributed log consensus, formal verification, fuzzing, or network adversary testing. Capability budgets are stored in a local in-memory counter and are not atomic across distributed processes. The audit DAG detects mutation of stored accepted messages, but v0.1 does not log all malformed or rejected probes. Public-key distribution is assumed out of band. The paper therefore should be read as an early feasibility artifact, not a production protocol specification.
+v0.2 closes the v0.1 ``future work'' list at the artifact level but introduces its own scope boundary. We do not claim: W3C VC compliance (no JSON-LD context processing, no URDNA2015 RDF normalization), enterprise PKI or HSM-grade key isolation, distributed revocation propagation (the registry is per-process; gossip and consensus are out of scope), arbitrary-untrusted-code WASM safety (the sandbox is verified for the calculator and two adversarial fixtures only), wall-clock timeouts on WASM (fuel bounds compute, not seconds), liveness or cryptographic proof from the TLA+ model (only safety, only against a bounded model), production deployment readiness, fuzz coverage, side-channel resistance (timing/cache/Spectre-class), or interoperability with MCP, A2A, ACP, or ANP ecosystems beyond protocol-shape similarity. The replay cache uses a per-process \texttt{dict}; its garbage collection is $O(n)$ per check and characterized as a known cost in \texttt{benchmarks/results/replay\_overhead.csv}.
 
 \section{Future Work}
-Future work should implement QUIC transport and compare local, loopback, and networked latency; add replay caches and revocation; integrate a real DID/VC trust layer; replace the calculator stub with WASM/WASI sandboxed tools; add MCP, A2A, ACP, ANP, and HTTP JSON adapters; log denied and malformed requests in the audit layer; implement concurrency-safe budget reservation; add fuzzing and property-based tests; and study privacy-preserving TensorFrame designs in light of embedding inversion and KV-cache leakage research.
+With QUIC, DID, VC, revocation, replay, WASM, formal modeling, and adversary evaluation now in the artifact, future work shifts up the stack. Concrete next steps include: distributed revocation gossip; multi-process concurrency-safe budget reservation; HSM/keyring-backed key storage as a default; richer formal modeling (cryptographic protocols via ProVerif/Tamarin; liveness via TLC fairness annotations); a wall-clock interrupt for WASM via wasmtime epoch interruption; multi-tenant sandbox isolation; fuzz testing on the message validation and authorization paths; protocol adapters bridging SIFR frames to MCP, A2A, ACP, and ANP carriers; privacy-preserving TensorFrame designs informed by embedding inversion and KV-cache leakage research; and CI matrix expansion to cover macOS in addition to the current Ubuntu and Windows runners.
 
 \section{Conclusion}
-SIFR v0.1 proposes and implements a narrow but complete vertical slice for structured, signed, capability-checked AI-agent communication. The prototype shows that Hello, capability negotiation, signed authorization, bounded tool execution, signed observation, and audit-DAG verification can be integrated into a reproducible research artifact. The measured local overhead is concrete: a signed SIFR action is 411 bytes versus 53 bytes for plain JSON, signing averages 0.0314 ms, verification averages 0.0615 ms, and sign+verify+DAG latency averages 0.1104 ms in the current environment. The work is deliberately scoped and not production-ready, but it provides a concrete baseline for future agent-native protocol research.
+SIFR v0.1 proposes and implements a narrow but complete vertical slice for structured, signed, capability-checked AI-agent communication. SIFR v0.2 promotes the prototype to a verified research artifact: encrypted-at-rest key management; DID resolution; VC-inspired credentials with mutation defenses; signed revocation; replay protection; sandboxed WASM execution; real QUIC transport; an 11-attack adversary suite; and a TLA+ model checked against 276{,}205 states under 7 invariants. The end-to-end demo exits 0 with the spec's expected output. Across both iterations the work remains deliberately scoped and not production-ready, but it provides a concrete, testable baseline for agent-native protocol research with explicit non-claims at each layer.
 
 \section*{Reproducibility Statement}
-The artifact includes source code, tests, benchmark scripts, raw benchmark files, generated plots, paper source, and review notes. From the repository root, run:
+The artifact includes source code, tests, benchmark scripts, raw benchmark files (CSV and JSON), generated plots, paper source, formal model files, and review notes. From the repository root, run:
 \begin{verbatim}
-pip install -r requirements.txt
+pip install -e ".[dev]"
 pytest
-python examples/demo_two_agents.py
-bash scripts/run_benchmarks.sh
-python scripts/generate_figures.py
+python examples/demo_secure_quic_wasm_did_flow.py
+python benchmarks/bench_did_resolution.py
+python benchmarks/bench_quic_latency.py
+python benchmarks/bench_adversary_rejection.py
+python benchmarks/bench_wasm_overhead.py
+python benchmarks/bench_credential_verification.py
+python benchmarks/bench_replay_overhead.py
+python benchmarks/bench_revocation_overhead.py
 \end{verbatim}
-On Windows without Bash, run each Python benchmark script directly. The Overleaf-ready paper is in the \texttt{paper/} directory.
+The TLA+ model can be checked by any reviewer with a Java JRE 11+ and \texttt{tla2tools.jar}:
+\begin{verbatim}
+pwsh scripts/install_tla.ps1   # downloads tla2tools.jar
+pwsh formal/run_tlc.ps1        # writes formal/output/tlc_output.txt
+\end{verbatim}
+The bash equivalents are \texttt{bash formal/run\_tlc.sh}. The Overleaf-ready paper is in \texttt{paper/}; v0.1 benchmark results are preserved under \texttt{benchmarks/results/v0.1/}; v0.2 results are at the top level of \texttt{benchmarks/results/}. CI configuration in \texttt{.github/workflows/test.yml} runs the test matrix on Ubuntu and Windows for Python 3.11 and 3.12.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
