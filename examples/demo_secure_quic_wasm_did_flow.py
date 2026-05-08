@@ -21,7 +21,7 @@ STEPS = [
     ("Replay check", "OK"),
     ("Revocation check", "OK"),
     ("Action authorized", "PENDING"),
-    ("WASM calculator executed", "PENDING"),
+    ("WASM calculator executed", "OK"),
     ("Observation verified", "PENDING"),
     ("Audit DAG integrity", "PENDING"),
     ("Formal model artifacts", "PENDING"),

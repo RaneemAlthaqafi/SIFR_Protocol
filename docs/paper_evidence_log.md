@@ -89,3 +89,28 @@ Template per entry:
 **Messages:** `sifr/messages.py` adds `CapabilityRevocation` to `MESSAGE_TYPES`. AuditDAG accepts the new type with no further changes (existing add_message is type-agnostic).
 **Integration demo:** `examples/demo_secure_quic_wasm_did_flow.py` — `Capability credential: OK`, `Replay check: OK`, `Revocation check: OK` lines flipped.
 **Tests:** all 102 tests pass (27 v0.1 + 14 keys + 22 DID + 12 replay + 12 revocation + 15 credentials).
+
+## WASM tool isolation — 2026-05-08
+
+**Code:** `sifr/wasm_runner.py` — `WasmToolRunner` using wasmtime 44, no WASI imports linked, fuel-bounded per call (default 1M), fresh Store per call (state isolation). `PythonCalculatorReference` retained as parity reference. Backwards-compat alias `CalculatorTool = PythonCalculatorReference`.
+**Modules:** `wasm/calculator/calculator.wat` (13-line WAT, no imports, no memory). `tests/fixtures/wasm_modules/looping.wat` (infinite-loop adversarial fixture). `tests/fixtures/wasm_modules/fs_attempt.wat` (imports `wasi_snapshot_preview1.path_open`, must fail to instantiate).
+**Tests:** `tests/test_wasm_runner.py` — 13 tests. **Trap-acceptance tests:**
+- `test_python_and_wasm_parity`: 8 input pairs (incl. negatives, large values) bit-identical between Python and WASM.
+- `test_evidence_counter_advances_per_call`: every successful call increments `last_invocation_evidence["fuel_consumed"]` (a Python fall-through would never advance it).
+- `test_calculator_does_not_have_wasi_imports`: committed module has zero imports.
+- `test_fs_attempt_module_fails_to_instantiate`: hostile module importing WASI cannot be instantiated under the runner.
+- `test_looping_module_exhausts_fuel`: infinite loop traps on fuel after the configured budget.
+**Demo:** `examples/demo_wasm_calculator.py` — runs both implementations, prints `fuel_consumed=4` as evidence the WASM path actually executed (each `i64.add`+`local.get`s consume 4 fuel units).
+**Documentation:** `docs/wasm_sandbox.md` — sandbox boundary (no FS/net/env/clock), fuel limit, state isolation, trap-acceptance table, explicit non-claims (no arbitrary-untrusted-code safety, no side-channel resistance, no multi-tenant isolation).
+**Benchmark:** `benchmarks/bench_wasm_overhead.py` -> `benchmarks/results/wasm_overhead.csv`:
+- python reference: ~0.25 us/call (10K iter)
+- wasm-warm (module cached, fresh Store per call): ~113 us/call
+- wasm-cold (fresh runner, recompile per call): ~4050 us/call
+**Choice:** committed `.wat` (text), not `.wasm` binary. Reviewers can read the module by hand. wasmtime compiles WAT at load time; the trade is one compile per process for full reviewer transparency.
+**Claim made:** WASM isolation for the tested calculator module, infinite-loop fixture, and WASI-import-attempt fixture under the documented runner configuration.
+**Claim NOT made:** arbitrary untrusted code safety, side-channel resistance, multi-tenant isolation, wall-clock timeout.
+
+## Phase 3 integration — 2026-05-08
+
+**Integration demo:** `examples/demo_secure_quic_wasm_did_flow.py` — `WASM calculator executed: OK` line flipped.
+**Tests:** all 115 tests pass (27 v0.1 + 36 Phase 1 + 39 Phase 2 + 13 Phase 3).
