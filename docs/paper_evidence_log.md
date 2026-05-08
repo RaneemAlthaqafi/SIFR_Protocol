@@ -179,3 +179,19 @@ QUIC is ~5x slower than in-process queues, attributable to handshake amortizatio
 ## Phase 4 integration — 2026-05-08
 
 **Tests:** all 132 tests pass (27 v0.1 + 36 Phase 1 + 39 Phase 2 + 13 Phase 3 + 5 QUIC + 11 adversary + 1 secure_flow).
+
+## Formal model — 2026-05-09
+
+**Code:** `formal/sifr_capability.tla` — TLA+ model of the SIFR capability lifecycle (states `unissued -> active -> {expired | revoked}`; actions `Issue`, `Expire`, `Revoke`, `Consume`; replay set `(subject, message_id)`; bounded budget `MaxCalls`). 6 invariants checked: `NoOverBudgetConsume`, `NoWrongSubjectConsume`, `NoUnauthorizedActionConsume`, `NoReplayedConsume`, `NoConsumeAfterRevoke`, `NoConsumeAfterExpire`, plus `TypeInvariant`.
+**Config:** `formal/MC.cfg` -- bounded constants `Caps={c1,c2}`, `Subs={alice,bob}`, `Acts={add,multiply}`, `Msgs={m1,m2}`, `MaxCalls=2`.
+**Run wrappers:** `formal/run_tlc.ps1` and `formal/run_tlc.sh`. Install: `scripts/install_tla.ps1` downloads `tla2tools.jar` to gitignored `formal/tools/`.
+**Run output:** `formal/output/tlc_output.txt`. TLC 2026.05.04 with 16 workers explored **276,205 distinct states** at depth 9 in 7s. Result: "Model checking completed. No error has been found." across all 7 invariants.
+**Tests:** `tests/test_formal_artifacts.py` -- 5 tests: model-file-exists, MC.cfg-exists, every-expected-invariant-defined-in-model, MC.cfg-lists-invariants (>=6), TLC-output-shows-success-marker (skips with clear instructions if Java + tla2tools.jar absent on host). **Trap-acceptance:** the structural tests fail if invariants are renamed or removed; the freshness test fails if a stale tlc_output.txt is committed.
+**Documentation:** `docs/formal_model.md` -- model scope, invariant -> code mapping, TLC install instructions for Windows/Linux/macOS, explicit non-claims (no cryptographic proof, no liveness, no implementation correctness, no real concurrency).
+**Integration demo:** `examples/demo_secure_quic_wasm_did_flow.py` -- final line `Formal model artifacts: PRESENT`. **All 11 lines now print OK / PRESENT and the demo exits 0 with "Demo completed successfully."**
+**Claim made:** TLC model-checked safety: 276K distinct states verified to satisfy all 7 invariants under the bounded constants in MC.cfg.
+**Claim NOT made:** cryptographic proof, liveness verification, implementation/spec equivalence proof, exhaustiveness over unbounded constants, real concurrency analysis.
+
+## Phase 5 (formal model) integration — 2026-05-09
+
+**Tests:** all 137 tests pass (27 v0.1 + 36 Phase 1 + 39 Phase 2 + 13 Phase 3 + 17 Phase 4 + 5 formal).

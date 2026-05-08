@@ -9,3 +9,13 @@ paper/*.log
 paper/*.out
 paper/main.pdf
 paper/compiled_paper.pdf
+
+# Formal model: TLC working files
+formal/tools/
+formal/states/
+formal/sifr_capability_TTrace_*.tla
+formal/sifr_capability_TTrace_*.bin
+
+# Test/dev TLS certs (never commit private keys)
+**/dev_certs/
+**/test_certs/
