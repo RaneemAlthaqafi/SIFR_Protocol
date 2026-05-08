@@ -11,6 +11,7 @@ MESSAGE_TYPES = {
     "Hello",
     "CapabilityOffer",
     "CapabilityGrant",
+    "CapabilityRevocation",
     "Thought",
     "Action",
     "ToolUse",

@@ -20,3 +20,15 @@ class UnauthorizedAction(CapabilityError):
 
 class AuditDAGError(SIFRError):
     pass
+
+
+class RevocationError(SIFRError):
+    pass
+
+
+class ReplayError(SIFRError):
+    pass
+
+
+class CredentialError(SIFRError):
+    pass

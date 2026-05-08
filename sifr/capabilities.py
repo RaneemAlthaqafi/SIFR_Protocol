@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from typing import Union
+from typing import Optional, TYPE_CHECKING, Union
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
@@ -14,6 +14,10 @@ from .errors import CapabilityError, UnauthorizedAction
 from .keyring_iface import KeyResolver
 from .messages import create_message
 from .utils import new_capability_id, parse_utc, utc_now_iso
+
+if TYPE_CHECKING:
+    from .replay import ReplayCache
+    from .revocation import RevocationRegistry
 
 IssuerKey = Union[Ed25519PublicKey, KeyResolver]
 
@@ -96,10 +100,16 @@ def authorize_action(
     *,
     consume: bool = True,
     now: datetime | None = None,
+    revocation_registry: Optional["RevocationRegistry"] = None,
+    replay_cache: Optional["ReplayCache"] = None,
 ) -> bool:
     verify_capability_grant(grant_message, issuer_public_key)
+    if replay_cache is not None:
+        replay_cache.check_and_record(action_message, now=now)
     payload = grant_message["payload"]
     cap_id = payload["capability_id"]
+    if revocation_registry is not None and revocation_registry.is_revoked(cap_id) is not None:
+        raise UnauthorizedAction("REVOKED_CAPABILITY")
     if action_message.get("capability_id") != cap_id:
         raise UnauthorizedAction("CAPABILITY_MISMATCH")
     if payload["subject"] != action_message.get("sender_id"):
