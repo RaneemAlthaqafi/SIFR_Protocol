@@ -9,9 +9,12 @@ When run, this script exits 0 only when every step prints OK.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 STEPS = [
-    ("DID resolution", "PENDING"),
+    ("DID resolution", "OK"),
     ("QUIC session", "PENDING"),
     ("Hello signature", "PENDING"),
     ("Capability credential", "PENDING"),

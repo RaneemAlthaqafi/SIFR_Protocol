@@ -1,0 +1,2 @@
+# Committed fixtures for negative tests are written into this directory.
+# Tests that need a positive working keypair generate them in tmp_path.

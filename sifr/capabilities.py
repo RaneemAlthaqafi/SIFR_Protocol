@@ -5,12 +5,17 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from typing import Union
+
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from .crypto import sign_message, verify_message
 from .errors import CapabilityError, UnauthorizedAction
+from .keyring_iface import KeyResolver
 from .messages import create_message
 from .utils import new_capability_id, parse_utc, utc_now_iso
+
+IssuerKey = Union[Ed25519PublicKey, KeyResolver]
 
 
 class CapabilityStore:
@@ -70,7 +75,7 @@ def create_capability_grant(
     return sign_message(msg, issuer_private_key, f"{issuer}#key-1")
 
 
-def verify_capability_grant(grant_message: dict[str, Any], issuer_public_key: Ed25519PublicKey) -> bool:
+def verify_capability_grant(grant_message: dict[str, Any], issuer_public_key: IssuerKey) -> bool:
     if grant_message.get("type") != "CapabilityGrant":
         raise CapabilityError("not a CapabilityGrant")
     verify_message(grant_message, issuer_public_key)
@@ -86,7 +91,7 @@ def verify_capability_grant(grant_message: dict[str, Any], issuer_public_key: Ed
 def authorize_action(
     action_message: dict[str, Any],
     grant_message: dict[str, Any],
-    issuer_public_key: Ed25519PublicKey,
+    issuer_public_key: IssuerKey,
     store: CapabilityStore,
     *,
     consume: bool = True,
