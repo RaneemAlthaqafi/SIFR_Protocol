@@ -130,7 +130,10 @@ def main() -> None:
         "artifact": art,
         "overleaf": ovl,
     }
-    out = REPO / "review" / "v0_3_release_manifest.json"
+    # Manifest filename derives from major.minor: v0.4.0 -> v0_4, v0.3.1 -> v0_3.
+    parts = RELEASE_VERSION.lstrip("v").split(".")
+    short = "v" + "_".join(parts[:2]) if len(parts) >= 2 else RELEASE_VERSION.replace(".", "_").lstrip("v")
+    out = REPO / "review" / f"{short}_release_manifest.json"
     out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     print(f"artifact zip: {ARTIFACT_ZIP.relative_to(REPO)}  ({art['files']} files, {art['bytes']:,} bytes)")

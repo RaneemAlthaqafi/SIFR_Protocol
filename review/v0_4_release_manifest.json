@@ -1,0 +1,18 @@
+{
+  "version": "v0.4.0",
+  "git_commit": "a39aa3e7ca349354b10f789d7e1317c8336e9825",
+  "git_describe": "v0.3.1-4-ga39aa3e",
+  "timestamp_utc": "2026-05-09T02:30:59Z",
+  "artifact": {
+    "zip": "sifr-v0.4.0-research-artifact.zip",
+    "sha256": "a72cb0b2835c271f0cccf6113dd9e747798dccad621aecc31335b9a88b88c7fa",
+    "files": 199,
+    "bytes": 1314007
+  },
+  "overleaf": {
+    "zip": "sifr-v0.4.0-overleaf-ready.zip",
+    "sha256": "a69f3341026987a7bca4fdb81c78ba4776109db557683459b2863012c0f1e87d",
+    "files": 23,
+    "bytes": 1099014
+  }
+}
