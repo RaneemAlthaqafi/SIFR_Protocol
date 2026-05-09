@@ -1,0 +1,4 @@
+implementation,n,avg_call_us,throughput_per_s
+python,10000,0.132,7594744.0
+wasm-warm,10000,40.618,24619.0
+wasm-cold,200,726.221,1377.0

@@ -8,6 +8,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bench_io import versioned_results_dir
 
 from sifr.wasm_runner import PythonCalculatorReference, WasmToolRunner
 
@@ -61,7 +63,7 @@ def bench_wasm_cold(n: int) -> dict:
 
 
 def main() -> None:
-    out = REPO_ROOT / "benchmarks" / "results" / "wasm_overhead.csv"
+    out = versioned_results_dir() / "wasm_overhead.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = [
         bench_python(10_000),

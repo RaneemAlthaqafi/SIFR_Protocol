@@ -14,6 +14,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bench_io import versioned_results_dir
 sys.path.insert(0, str(REPO_ROOT / "tests"))
 
 from datetime import datetime, timedelta, timezone
@@ -130,7 +132,7 @@ def attack_11(s):
 
 
 def main() -> None:
-    out = REPO_ROOT / "benchmarks" / "results" / "adversary_rejection.json"
+    out = versioned_results_dir() / "adversary_rejection.json"
     out.parent.mkdir(parents=True, exist_ok=True)
 
     attacks = [

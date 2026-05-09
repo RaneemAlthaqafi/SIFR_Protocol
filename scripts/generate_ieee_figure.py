@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA = REPO_ROOT / "benchmarks" / "results" / "adversary_rejection.json"
+DATA = REPO_ROOT / "benchmarks" / "results" / "v0.2" / "adversary_rejection.json"
 OUT = REPO_ROOT / "paper" / "figures" / "ieee_adversary_rejection.pdf"
 
 # ---------- IEEE typography ----------

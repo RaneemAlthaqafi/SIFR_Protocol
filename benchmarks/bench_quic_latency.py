@@ -16,6 +16,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bench_io import versioned_results_dir
 
 from sifr.audit_dag import AuditDAG
 from sifr.crypto import generate_keypair, sign_message, verify_message
@@ -113,7 +115,7 @@ async def main_async() -> list[dict]:
 
 def main() -> None:
     rows = asyncio.run(main_async())
-    out = REPO_ROOT / "benchmarks" / "results" / "quic_latency.csv"
+    out = versioned_results_dir() / "quic_latency.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))

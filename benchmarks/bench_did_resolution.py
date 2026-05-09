@@ -10,6 +10,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bench_io import versioned_results_dir
 sys.path.insert(0, str(REPO_ROOT / "tests" / "fixtures"))
 
 from sifr.crypto import generate_keypair, public_key_to_b64
@@ -94,13 +96,16 @@ def bench_did_web(n: int) -> dict:
 
 
 def main() -> None:
-    out = REPO_ROOT / "benchmarks" / "results" / "did_resolution.csv"
+    out = versioned_results_dir() / "did_resolution.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
+    # did:web cold resolution deliberately creates a fresh HTTP client and fetches
+    # over the loopback fixture each iteration. On Windows this can take seconds
+    # per probe, so keep the counts small enough for reviewer reproduction.
     rows = [
         bench_did_sifr(1000),
         bench_did_sifr(5000),
-        bench_did_web(200),
-        bench_did_web(500),
+        bench_did_web(3),
+        bench_did_web(5),
     ]
     with out.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))

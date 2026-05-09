@@ -1,6 +1,6 @@
 """Generate publication-quality figures for SIFR v0.2 benchmarks.
 
-Reads CSV/JSON from benchmarks/results/ and writes PNGs to paper/figures/.
+Reads CSV/JSON from benchmarks/results/v0.2/ and writes PNGs to paper/figures/.
 Style choices: log-scale where data spans orders of magnitude, value labels
 on bars, consistent color palette, no 3D / gradient / chartjunk.
 """
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RESULTS = REPO_ROOT / "benchmarks" / "results"
+RESULTS = REPO_ROOT / "benchmarks" / "results" / "v0.2"
 OUT = REPO_ROOT / "paper" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 

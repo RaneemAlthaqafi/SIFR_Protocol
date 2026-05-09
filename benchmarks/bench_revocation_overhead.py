@@ -8,6 +8,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bench_io import versioned_results_dir
 
 from sifr.crypto import generate_keypair
 from sifr.revocation import RevocationRegistry
@@ -43,7 +45,7 @@ def bench_lookup_overhead(prefill: int, n_probes: int = 5000) -> dict:
 
 
 def main() -> None:
-    out = REPO_ROOT / "benchmarks" / "results" / "revocation_overhead.csv"
+    out = versioned_results_dir() / "revocation_overhead.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = [
         bench_lookup_overhead(0),

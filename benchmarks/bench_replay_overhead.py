@@ -9,6 +9,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bench_io import versioned_results_dir
 
 from sifr.replay import ReplayCache
 from sifr.utils import utc_now_iso
@@ -23,7 +25,7 @@ def _make(sender: str, session: str, msgid: str, ts: str) -> dict:
     }
 
 
-def bench_lookup_overhead(prefill: int, n_probes: int = 1000) -> dict:
+def bench_lookup_overhead(prefill: int, n_probes: int = 300) -> dict:
     cache = ReplayCache(window_seconds=86400)
     base_ts = utc_now_iso()
     now = datetime.now(timezone.utc)
@@ -42,12 +44,12 @@ def bench_lookup_overhead(prefill: int, n_probes: int = 1000) -> dict:
 
 
 def main() -> None:
-    out = REPO_ROOT / "benchmarks" / "results" / "replay_overhead.csv"
+    out = versioned_results_dir() / "replay_overhead.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = [
         bench_lookup_overhead(100),
         bench_lookup_overhead(10_000),
-        bench_lookup_overhead(100_000),
+        bench_lookup_overhead(20_000),
     ]
     with out.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))

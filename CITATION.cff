@@ -1,12 +1,14 @@
 cff-version: 1.2.0
-title: "SIFR v0.1 Research Prototype"
-message: "If you use this prototype, please cite the accompanying SIFR v0.1 paper draft."
+title: "SIFR v0.2 Research Artifact"
+message: "If you use this artifact, please cite the accompanying SIFR v0.2 paper draft."
 type: software
 authors:
-  - family-names: "One"
-    given-names: "Author"
-  - family-names: "Two"
-    given-names: "Author"
-version: "0.1.0"
-date-released: "2026-05-07"
+  - family-names: "Althaqafi"
+    given-names: "Raneem"
+    email: "althaqafi.raneem@gmail.com"
+  - family-names: "Althaqafi"
+    given-names: "Majid"
+    email: "imajedmuhammad@gmail.com"
+version: "0.2.0"
+date-released: "2026-05-09"
 license: "MIT"

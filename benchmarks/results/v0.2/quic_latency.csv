@@ -1,0 +1,4 @@
+transport,n,avg_rtt_ms
+local,2000,0.0868
+http-json-baseline,2000,0.0838
+quic,500,0.3831

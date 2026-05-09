@@ -9,6 +9,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bench_io import versioned_results_dir
 
 from sifr.credentials import issue_credential, verify_credential
 from sifr.crypto import generate_keypair
@@ -64,7 +66,7 @@ def bench(n: int) -> dict:
 
 
 def main() -> None:
-    out = REPO_ROOT / "benchmarks" / "results" / "credential_verification.csv"
+    out = versioned_results_dir() / "credential_verification.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = [bench(1000), bench(5000)]
     with out.open("w", newline="", encoding="utf-8") as fh:
