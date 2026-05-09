@@ -17,15 +17,14 @@ Honest yes/no answers. v0.4.0 promotes from v0.4-rc1 by running Tamarin Prover 1
 | 11 | Are release manifests fresh? | **Yes** | `review/v0_4_release_manifest.json` records the v0.4.0 commit; zips rebuilt. |
 | 12 | Are benchmark manifests fresh? | **Yes** | `benchmarks/results/v0.3/manifest.json` records the v0.3.1 substance commit; v0.4.0 carries forward this evidence. |
 | 13 | Are zips rebuilt? | **Yes** | `sifr-v0.4.0-research-artifact.zip`, `sifr-v0.4.0-overleaf-ready.zip`. |
-| 14 | Are GitHub release assets attached? | **Pending user authorization** — `gh release create` is an external publishing action under the user's identity. The auto-mode classifier in this session blocked the call; tag `v0.4.0` is on remote and zips are built locally. To complete: `gh release create v0.4.0 ./sifr-v0.4.0-research-artifact.zip ./sifr-v0.4.0-overleaf-ready.zip`. |
+| 14 | Are GitHub release assets attached? | **Yes** | `gh release view v0.4.0 --repo RaneemAlthaqafi/SIFR_Protocol --json tagName,assets` returns both `sifr-v0.4.0-research-artifact.zip` (1,314,007 bytes) and `sifr-v0.4.0-overleaf-ready.zip` (1,099,014 bytes). Release URL: https://github.com/RaneemAlthaqafi/SIFR_Protocol/releases/tag/v0.4.0 |
 | 15 | Is the final verdict honest? | **Yes** | The replay_resistance lemma's verification depends on a documented `accepted_once_per_message` restriction that models the SIFR `ReplayCache` as an external abstract invariant. The implementation enforcement is `sifr/replay.py:ReplayCache.check_and_record`. This dependency is recorded in the lemma comment, in `docs/proof_obligations_v0_4.md`, and in `formal/output/tamarin_metadata.json`. |
 
 ## Tally
 
 | Verdict | Count | Items |
 |---|---|---|
-| Yes | 14 | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15 |
-| Pending user authorization | 1 | 14 (`gh release create`) |
+| Yes | 15 | all |
 | No | 0 | — |
 
 ## Final v0.4.0 verdict
@@ -40,7 +39,7 @@ Honest yes/no answers. v0.4.0 promotes from v0.4-rc1 by running Tamarin Prover 1
 - **C6 No Tool Before Authorization**: symbolic-proven (Tamarin, 3 steps; `tool_safety` lemma) + tested.
 - **C7 Bounded State-Machine Safety**: bounded-proven (TLC, 9 invariants × 11,601 states).
 
-The single residual on this gate (#14) is a publishing step that requires explicit user authorization for `gh release create`; it is not a research or proof gap.
+All 15 gate items answer Yes. The release is published at https://github.com/RaneemAlthaqafi/SIFR_Protocol/releases/tag/v0.4.0 with both zips attached.
 
 ## Honest residuals (not gate failures)
 
