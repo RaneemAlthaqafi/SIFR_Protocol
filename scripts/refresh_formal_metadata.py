@@ -15,8 +15,9 @@ F = REPO / "formal"
 OUT = F / "output"
 
 
-def sha256(p: Path) -> str:
-    return hashlib.sha256(p.read_bytes()).hexdigest()
+def canonical_text_sha256(p: Path) -> str:
+    text = p.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def parse_tlc_output(text: str) -> dict:
@@ -79,9 +80,9 @@ def main() -> None:
         ],
     }
     hashes = {
-        "sifr_capability.tla": sha256(tla),
-        "MC.cfg": sha256(cfg),
-        "tlc_output.txt": sha256(out_txt),
+        "sifr_capability.tla": canonical_text_sha256(tla),
+        "MC.cfg": canonical_text_sha256(cfg),
+        "tlc_output.txt": canonical_text_sha256(out_txt),
     }
     (OUT / "tlc_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     (OUT / "model_hashes.json").write_text(json.dumps(hashes, indent=2), encoding="utf-8")

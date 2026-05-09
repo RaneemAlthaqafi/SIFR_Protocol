@@ -129,8 +129,9 @@ def test_model_hashes_match_files():
         pytest.skip("no model_hashes.json present")
     hashes = json.loads(HASHES.read_text(encoding="utf-8"))
 
-    def sha256(p: Path) -> str:
-        return hashlib.sha256(p.read_bytes()).hexdigest()
+    def canonical_text_sha256(p: Path) -> str:
+        text = p.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     pairs = {
         "sifr_capability.tla": TLA,
@@ -145,7 +146,7 @@ def test_model_hashes_match_files():
         if not path.is_file():
             stale.append(f"{name}: file missing")
             continue
-        actual = sha256(path)
+        actual = canonical_text_sha256(path)
         if actual != hashes[name]:
             stale.append(f"{name}: stale (expected {hashes[name][:12]}, got {actual[:12]})")
     assert not stale, (
