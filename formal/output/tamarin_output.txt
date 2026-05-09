@@ -1,0 +1,150 @@
+maude tool: 'maude'
+ checking version: 3.1. OK.
+ checking installation:   solved goal nr. 0 (directly):
+    Accepted( I, S.1, act.2, m.3, c.4 ) @ #i.5
+  solved goal nr. 0 (directly): Revoked( I, c.4 ) @ #r.5
+  solved goal nr. 0 (directly): ToolRun( S, act.1, m.2, c.3 ) @ #t.4
+  solved goal nr. 0 (directly):
+    Accepted( I, S.1, act.2, m.3, c.4 ) @ #i.5
+  solved goal nr. 0 (directly):
+    Accepted( I, S.1, act.2, m.3, c.4 ) @ #i.5
+  solved goal nr. 1 (directly):
+    Accepted( I, S.1, act.2, m.3, c.4 ) @ #a.6
+  solved goal nr. 1 (directly):
+    Accepted( I, S.1, act.2, m.3, c.4 ) @ #j.6
+  simplified formula:
+      "((#a.6 = #r.5) ∨ (#r.5 < #a.6))"
+    to
+      "#r.5 < #a.6"
+  solved goal nr. 2 (simplified): (#a.6 = #r.5)  ∥ (#r.5 < #a.6)
+  solved goal nr. 0 (directly):
+    !AcceptedRecord( t.1, t.2, t.3, t.4 ) ▶₀ #i
+  solved goal nr. 0 (directly):
+    !PendingAction( t.1, t.2, t.3, t.4, t.5 ) ▶₀ #i
+  solved goal nr. 0 (directly): !KU( sign(t.1, t.2) ) @ #i
+  solved goal nr. 0 (directly): !KU( snd(t.1) ) @ #i
+  solved goal nr. 0 (directly): !Revocation( t.1, t.2 ) ▶₀ #i
+  solved goal nr. 0 (directly):
+    !Grant( t.1, t.2, t.3, t.4, t.5 ) ▶₀ #i
+  solved goal nr. 0 (directly): !Sk( t.1, t.2 ) ▶₀ #i
+  solved goal nr. 0 (directly): !KU( h(t.1) ) @ #i
+  solved goal nr. 0 (directly): !KU( pk(t.1) ) @ #i
+  solved goal nr. 0 (directly): !KU( ~t.1 ) @ #i
+  solved goal nr. 0 (directly): !Pk( t.1, t.2 ) ▶₀ #i
+  solved goal nr. 2 (directly): !Sk( $S.7, ~sks.7 ) ▶₀ #vr.6
+  solved goal nr. 2 (directly): !Sk( $I.4, ~ski.4 ) ▶₀ #vr.3
+  solved goal nr. 2 (directly): !Sk( $I.7, ~ski.7 ) ▶₀ #vr.6
+  solved goal nr. 0 (directly): !KU( fst(t.1) ) @ #i
+  solved goal nr. 0 (directly): !KU( verify(t.1, t.2, t.3) ) @ #i
+  solved goal nr. 3 (directly):
+    !Grant( $I.7, $S.7, $action.7, ~cap_id.7, gsig.7 ) ▶₁ #vr.6
+  solved goal nr. 3 (directly):
+    !Grant( $I.4, $S.4, $action.4, ~cap_id.4, sig.4 ) ▶₁ #vr.3
+  solved goal nr. 6 (directly): !Sk( $I.7, ~ski.13 ) ▶₀ #vr.12
+  solved goal nr. 6 (directly): !Sk( $I.4, ~ski.9 ) ▶₀ #vr.8
+  solved goal nr. 4 (directly): !Sk( $I.10, ~ski.10 ) ▶₀ #vr.9
+  solved goal nr. 4 (directly): !Sk( $I.10, ~ski.10 ) ▶₀ #vr.9
+  solved goal nr. 4 (directly): !Sk( $I.7, ~ski.7 ) ▶₀ #vr.6
+  solved goal nr. 5 (directly):
+    !Grant( $I.10, $S.10, $action.10, ~cap_id.10, sig.10 ) ▶₁ #vr.9
+  solved goal nr. 10 (directly): !Sk( $I.10, ~ski.18 ) ▶₀ #vr.17
+  solved goal nr. 2 (directly): !Pk( $S.35, pk(x.21) ) ▶₀ #vr.5
+  solved goal nr. 3 (directly): !Pk( $I.34, pk(x.38) ) ▶₁ #vr.5
+  solved goal nr. 4 (directly): !Sk( $I.7, ~ski.7 ) ▶₀ #vr.6
+  solved goal nr. 4 (directly):
+    !Grant( $I.34, $S.35, $action.36, ~cap_id.37,
+            sign(<'grant', $I.34, $S.35, $action.36, ~cap_id.37>, ~sk.43)
+    ) ▶₂ #vr.5
+  solved goal nr. 5 (directly):
+    !Grant( $I.7, $S.7, $action.7, ~t.1, sig.7 ) ▶₁ #vr.6
+  solved goal nr. 4 (directly): !Sk( $S.10, ~sks.10 ) ▶₀ #vr.9
+  solved goal nr. 14 (directly): !Sk( $I.7, ~ski.21 ) ▶₀ #vr.20
+  solved goal nr. 5 (directly):
+    !PendingAction( $S.35, $action.36, ~msg_id.6, ~cap_id.37,
+                    sign(<'action', $S.35, $action.36, ~msg_id.6, ~cap_id.37>, ~sk.40)
+    ) ▶₃ #vr.5
+  solved goal nr. 5 (directly):
+    !Grant( $I.10, $S.10, $action.10, ~cap_id.10, gsig.10 ) ▶₁ #vr.9
+  solved goal nr. 10 (directly): !Sk( $I.10, ~ski.19 ) ▶₀ #vr.18
+  solved goal nr. 21 (directly): !Sk( $I.34, ~sk.43 ) ▶₀ #vr.45
+  solved goal nr. 23 (directly): !Sk( $S.35, ~sk.40 ) ▶₀ #vr.48
+  solved goal nr. 24 (directly):
+    !Grant( $I.49, $S.35, $action.36, ~cap_id.37, gsig.49 ) ▶₁ #vr.48
+  solved goal nr. 4 (directly): !Sk( $S.7, ~sks.7 ) ▶₀ #vr.6
+  solved goal nr. 5 (directly):
+    !Grant( $I.7, $S.7, $action.7, ~cap_id.7, gsig.7 ) ▶₁ #vr.6
+  solved goal nr. 18 (directly): !Sk( $I.7, ~ski.28 ) ▶₀ #vr.27
+  solved goal nr. 4 (directly): !Sk( $S.7, ~sks.7 ) ▶₀ #vr.6
+  solved goal nr. 5 (directly):
+    !Grant( $I.7, $S.7, $action.7, ~t.1, gsig.7 ) ▶₁ #vr.6
+  solved goal nr. 18 (directly): !Sk( $I.7, ~ski.28 ) ▶₀ #vr.27
+  simplified formula:
+      "((#i.5 < #i.5) ∨ (#i.5 < #i.5))"
+    to
+      "⊥"
+  solved goal nr. 2 (simplified): (#i.5 < #i.5)  ∥ (#i.5 < #i.5)
+  solved goal nr. 2 (precomputed): !Pk( $S, pk(x) ) ▶₀ #i
+  solved goal nr. 2 (precomputed): !Pk( $S, pk(x) ) ▶₀ #i
+  solved goal nr. 2 (precomputed):
+    !AcceptedRecord( $S, $action, ~msg_id, ~cap_id ) ▶₀ #t
+  simplified formula:
+      "((#vr.1 = #t) ∨ (#t < #vr.1))"
+    to
+      "⊥"
+  solved goal nr. 22 (simplified): (#vr.1 = #t)  ∥ (#t < #vr.1)
+  solved goal nr. 3 (precomputed): !Pk( $I, pk(x) ) ▶₁ #i
+  solved goal nr. 3 (precomputed): !Pk( $I, pk(x) ) ▶₁ #i
+  solved goal nr. 4 (precomputed):
+    !Grant( $I, $S, $action, ~cap_id,
+            sign(<'grant', $I, $S, $action, ~cap_id>, ~sk.1)
+    ) ▶₂ #i
+  solved goal nr. 4 (precomputed):
+    !Grant( $I, $S, $action, ~cap_id,
+            sign(<'grant', $I, $S, $action, ~cap_id>, ~sk.1)
+    ) ▶₂ #i
+  simplified formula:
+      "((#vr.11 = #i) ∨ (#i < #vr.11))"
+    to
+      "⊥"
+  solved goal nr. 22 (simplified): (#vr.11 = #i)  ∥ (#i < #vr.11)
+  solved goal nr. 5 (precomputed):
+    !PendingAction( $S, $action, ~msg_id, ~cap_id,
+                    sign(<'action', $S, $action, ~msg_id, ~cap_id>, ~sk)
+    ) ▶₃ #i
+  simplified formula:
+      "((#vr.11 = #i) ∨ (#i < #vr.11))"
+    to
+      "⊥"
+  solved goal nr. 26 (simplified): (#vr.11 = #i)  ∥ (#i < #vr.11)
+OK.
+
+
+analyzing: formal/tamarin/sifr_core.spthy
+
+------------------------------------------------------------------------------
+analyzed: formal/tamarin/sifr_core.spthy
+
+  output:          formal/output/tamarin_proof.spthy
+  processing time: 0.940366271s
+  authentication (all-traces): verified (6 steps)
+  authorization_required (all-traces): verified (5 steps)
+  replay_resistance (all-traces): verified (2 steps)
+  revocation_safety (all-traces): verified (2 steps)
+  tool_safety (all-traces): verified (3 steps)
+
+------------------------------------------------------------------------------
+
+==============================================================================
+summary of summaries:
+
+analyzed: formal/tamarin/sifr_core.spthy
+
+  output:          formal/output/tamarin_proof.spthy
+  processing time: 0.940366271s
+  authentication (all-traces): verified (6 steps)
+  authorization_required (all-traces): verified (5 steps)
+  replay_resistance (all-traces): verified (2 steps)
+  revocation_safety (all-traces): verified (2 steps)
+  tool_safety (all-traces): verified (3 steps)
+
+==============================================================================

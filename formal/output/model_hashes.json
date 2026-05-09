@@ -1,5 +1,7 @@
 {
   "sifr_capability.tla": "dda26f5b8c1b1a6382f1e0d6763137e3d29ed9fa32dea03bc6efef0bd8bba0b4",
   "MC.cfg": "8e5da0afe8d1d6657aacf142c2b7a79623aabb42118138ef91c61f32cde4ad63",
-  "tlc_output.txt": "e4631831385e45d482f1927202c6baf6f670b5e6684313b97f64eb361b5ab516"
+  "tlc_output.txt": "e4631831385e45d482f1927202c6baf6f670b5e6684313b97f64eb361b5ab516",
+  "tamarin/sifr_core.spthy": "51fdecaff5d6475e81b66fa9f819bf1444f5cdb0e7bacfd122cd0ae3fe17751e",
+  "tamarin_output.txt": "0eb5dd926d6b4b7b3f468ed85aed61609a89f63568c1aa2b9ba541b126b0dbbd"
 }

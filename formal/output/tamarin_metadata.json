@@ -1,0 +1,36 @@
+{
+  "tool": "Tamarin Prover",
+  "tool_version": "1.7.1",
+  "docker_image": "aeads/tamarin:latest",
+  "timestamp_utc": "2026-05-09T02:27:53Z",
+  "lemmas": [
+    {
+      "name": "authentication",
+      "status": "verified",
+      "steps": 6
+    },
+    {
+      "name": "authorization_required",
+      "status": "verified",
+      "steps": 5
+    },
+    {
+      "name": "replay_resistance",
+      "status": "verified",
+      "steps": 2,
+      "note": "requires accepted_once_per_message restriction modelling the SIFR ReplayCache"
+    },
+    {
+      "name": "revocation_safety",
+      "status": "verified",
+      "steps": 2
+    },
+    {
+      "name": "tool_safety",
+      "status": "verified",
+      "steps": 3
+    }
+  ],
+  "wellformedness_warnings": 0,
+  "reproduction": "docker run --rm --entrypoint tamarin-prover -v PWD:/work -w /work aeads/tamarin:latest --prove formal/tamarin/sifr_core.spthy --output=formal/output/tamarin_proof.spthy"
+}

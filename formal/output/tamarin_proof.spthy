@@ -1,0 +1,292 @@
+theory sifr_core begin
+
+// Function signature and definition of the equational theory E
+
+functions: fst/1[destructor], h/1, pair/2, pk/1, sign/2,
+           snd/1[destructor], true/0, verify/3[destructor]
+equations:
+    fst(<x.1, x.2>) = x.1,
+    snd(<x.1, x.2>) = x.2,
+    verify(sign(x.1, x.2), x.1, pk(x.2)) = true
+
+
+
+
+
+
+
+rule (modulo E) Register_Key:
+   [ Fr( ~sk ) ]
+  --[ KeyGen( $A, ~sk ) ]->
+   [ !Pk( $A, pk(~sk) ), !Sk( $A, ~sk ), Out( pk(~sk) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Issue_Grant:
+   [ !Sk( $I, ~ski ), Fr( ~cap_id ) ]
+  --[ Issued( $I, $S, $action, ~cap_id ) ]->
+   [
+   Out( <<'grant', $I, $S, $action, ~cap_id>, 
+         sign(<'grant', $I, $S, $action, ~cap_id>, ~ski)>
+   ),
+   !Grant( $I, $S, $action, ~cap_id,
+           sign(<'grant', $I, $S, $action, ~cap_id>, ~ski)
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Revoke_Grant:
+   [ !Sk( $I, ~ski ), !Grant( $I, $S, $action, ~cap_id, sig ) ]
+  --[ Revoked( $I, ~cap_id ) ]->
+   [
+   !Revocation( $I, ~cap_id ),
+   Out( <<'revoke', $I, ~cap_id>, sign(<'revoke', $I, ~cap_id>, ~ski)> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Send_Action:
+   [
+   !Sk( $S, ~sks ), !Grant( $I, $S, $action, ~cap_id, gsig ), Fr( ~msg_id )
+   ]
+  --[ Sent( $S, $action, ~msg_id, ~cap_id ) ]->
+   [
+   Out( <<'action', $S, $action, ~msg_id, ~cap_id>, 
+         sign(<'action', $S, $action, ~msg_id, ~cap_id>, ~sks)>
+   ),
+   !PendingAction( $S, $action, ~msg_id, ~cap_id,
+                   sign(<'action', $S, $action, ~msg_id, ~cap_id>, ~sks)
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Accept_Action:
+   [
+   !Pk( $S, pubS ), !Pk( $I, pubI ),
+   !Grant( $I, $S, $action, ~cap_id, gsig ),
+   !PendingAction( $S, $action, ~msg_id, ~cap_id, action_sig ),
+   In( <<'action', $S, $action, ~msg_id, ~cap_id>, action_sig> )
+   ]
+  --[
+  Accepted( $I, $S, $action, ~msg_id, ~cap_id ), NotRevoked( $I, ~cap_id ),
+  AcceptedOnce( $S, ~msg_id ),
+  Eq( verify(action_sig, <'action', $S, $action, ~msg_id, ~cap_id>, pubS),
+      true
+  ),
+  Eq( verify(gsig, <'grant', $I, $S, $action, ~cap_id>, pubI), true )
+  ]->
+   [ !AcceptedRecord( $S, $action, ~msg_id, ~cap_id ) ]
+
+  /*
+  rule (modulo AC) Accept_Action:
+     [
+     !Pk( $S, pubS ), !Pk( $I, pubI ),
+     !Grant( $I, $S, $action, ~cap_id, gsig ),
+     !PendingAction( $S, $action, ~msg_id, ~cap_id, action_sig ),
+     In( <<'action', $S, $action, ~msg_id, ~cap_id>, action_sig> )
+     ]
+    --[
+    Accepted( $I, $S, $action, ~msg_id, ~cap_id ), NotRevoked( $I, ~cap_id ),
+    AcceptedOnce( $S, ~msg_id ), Eq( z, true ), Eq( z.1, true )
+    ]->
+     [ !AcceptedRecord( $S, $action, ~msg_id, ~cap_id ) ]
+    variants (modulo AC)
+    1. $I    = $I.14
+       $S    = $S.15
+       $action
+             = $action.16
+       ~cap_id
+             = ~cap_id.17
+       ~msg_id
+             = ~msg_id.18
+       action_sig
+             = action_sig.19
+       gsig  = gsig.20
+       pubI  = pubI.21
+       pubS  = pubS.22
+       z     = verify(action_sig.19,
+                      <'action', $S.15, $action.16, ~msg_id.18, ~cap_id.17>, pubS.22)
+       z.1   = verify(gsig.20, <'grant', $I.14, $S.15, $action.16, ~cap_id.17>,
+                      pubI.21)
+    
+    2. $I    = $I.19
+       $S    = $S.20
+       $action
+             = $action.21
+       ~cap_id
+             = ~cap_id.22
+       ~msg_id
+             = ~msg_id.23
+       action_sig
+             = sign(<'action', $S.20, $action.21, ~msg_id.23, ~cap_id.22>, x.35)
+       gsig  = gsig.25
+       pubI  = pubI.26
+       pubS  = pk(x.35)
+       z     = true
+       z.1   = verify(gsig.25, <'grant', $I.19, $S.20, $action.21, ~cap_id.22>,
+                      pubI.26)
+    
+    3. $I    = $I.20
+       $S    = $S.21
+       $action
+             = $action.22
+       ~cap_id
+             = ~cap_id.23
+       ~msg_id
+             = ~msg_id.24
+       action_sig
+             = sign(<'action', $S.21, $action.22, ~msg_id.24, ~cap_id.23>, x.37)
+       gsig  = sign(<'grant', $I.20, $S.21, $action.22, ~cap_id.23>, x.38)
+       pubI  = pk(x.38)
+       pubS  = pk(x.37)
+       z     = true
+       z.1   = true
+    
+    4. $I    = $I.21
+       $S    = $S.22
+       $action
+             = $action.23
+       ~cap_id
+             = ~cap_id.24
+       ~msg_id
+             = ~msg_id.25
+       action_sig
+             = action_sig.26
+       gsig  = sign(<'grant', $I.21, $S.22, $action.23, ~cap_id.24>, x.39)
+       pubI  = pk(x.39)
+       pubS  = pubS.29
+       z     = verify(action_sig.26,
+                      <'action', $S.22, $action.23, ~msg_id.25, ~cap_id.24>, pubS.29)
+       z.1   = true
+  */
+
+rule (modulo E) Tool_Execute:
+   [ !AcceptedRecord( $S, $action, ~msg_id, ~cap_id ) ]
+  --[ ToolRun( $S, $action, ~msg_id, ~cap_id ) ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+restriction not_after_revoke:
+  "∀ I cap #i #j.
+    ((Revoked( I, cap ) @ #i) ∧ (NotRevoked( I, cap ) @ #j)) ⇒ (#j < #i)"
+  // safety formula
+
+restriction equality:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  // safety formula
+
+restriction accepted_once_per_message:
+  "∀ S m #i #j.
+    ((AcceptedOnce( S, m ) @ #i) ∧ (AcceptedOnce( S, m ) @ #j)) ⇒ (#i = #j)"
+  // safety formula
+
+lemma authentication:
+  all-traces
+  "∀ I S act m c #i.
+    (Accepted( I, S, act, m, c ) @ #i) ⇒
+    (∃ #j. (#j < #i) ∧ (Sent( S, act, m, c ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I S act m c #i.
+  (Accepted( I, S, act, m, c ) @ #i)
+ ∧
+  ∀ #j. (Sent( S, act, m, c ) @ #j) ⇒ ¬(#j < #i)"
+*/
+simplify
+solve( !Pk( $S, pk(x) ) ▶₀ #i )
+  case Register_Key
+  solve( !Pk( $I, pk(x) ) ▶₁ #i )
+    case Register_Key
+    solve( !Grant( $I, $S, $action, ~cap_id,
+                   sign(<'grant', $I, $S, $action, ~cap_id>, ~sk.1)
+           ) ▶₂ #i )
+      case Issue_Grant
+      solve( !PendingAction( $S, $action, ~msg_id, ~cap_id,
+                             sign(<'action', $S, $action, ~msg_id, ~cap_id>, ~sk)
+             ) ▶₃ #i )
+        case Send_Action
+        by contradiction /* from formulas */
+      qed
+    qed
+  qed
+qed
+
+lemma authorization_required:
+  all-traces
+  "∀ I S act m c #i.
+    (Accepted( I, S, act, m, c ) @ #i) ⇒
+    (∃ #j. (#j < #i) ∧ (Issued( I, S, act, c ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I S act m c #i.
+  (Accepted( I, S, act, m, c ) @ #i)
+ ∧
+  ∀ #j. (Issued( I, S, act, c ) @ #j) ⇒ ¬(#j < #i)"
+*/
+simplify
+solve( !Pk( $S, pk(x) ) ▶₀ #i )
+  case Register_Key
+  solve( !Pk( $I, pk(x) ) ▶₁ #i )
+    case Register_Key
+    solve( !Grant( $I, $S, $action, ~cap_id,
+                   sign(<'grant', $I, $S, $action, ~cap_id>, ~sk.1)
+           ) ▶₂ #i )
+      case Issue_Grant
+      by contradiction /* from formulas */
+    qed
+  qed
+qed
+
+lemma replay_resistance:
+  all-traces
+  "∀ I S act m c #i #j.
+    ((Accepted( I, S, act, m, c ) @ #i) ∧
+     (Accepted( I, S, act, m, c ) @ #j)) ⇒
+    (#i = #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I S act m c #i #j.
+  (Accepted( I, S, act, m, c ) @ #i) ∧ (Accepted( I, S, act, m, c ) @ #j)
+ ∧
+  ¬(#i = #j)"
+*/
+simplify
+by contradiction /* from formulas */
+
+lemma revocation_safety:
+  all-traces
+  "∀ I S act m c #r #a.
+    ((Revoked( I, c ) @ #r) ∧ (Accepted( I, S, act, m, c ) @ #a)) ⇒
+    (#a < #r)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I S act m c #r #a.
+  (Revoked( I, c ) @ #r) ∧ (Accepted( I, S, act, m, c ) @ #a) ∧ ¬(#a < #r)"
+*/
+simplify
+by contradiction /* cyclic */
+
+lemma tool_safety:
+  all-traces
+  "∀ S act m c #t.
+    (ToolRun( S, act, m, c ) @ #t) ⇒
+    (∃ I #a. (#a < #t) ∧ (Accepted( I, S, act, m, c ) @ #a))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ S act m c #t.
+  (ToolRun( S, act, m, c ) @ #t)
+ ∧
+  ∀ I #a. (Accepted( I, S, act, m, c ) @ #a) ⇒ ¬(#a < #t)"
+*/
+simplify
+solve( !AcceptedRecord( $S, $action, ~msg_id, ~cap_id ) ▶₀ #t )
+  case Accept_Action
+  by contradiction /* from formulas */
+qed
+
+/* All well-formedness checks were successful. */
+
+end

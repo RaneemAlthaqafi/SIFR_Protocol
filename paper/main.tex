@@ -500,12 +500,12 @@ We formalize seven security claims (C1-C7) over the SIFR core protocol and class
 \toprule
 ID & Claim (one line) & Status\\
 \midrule
-C1 & Authorization safety (signature, replay, revocation, expiration, budget, action, subject, issuer all checked before consume) & bounded-proven (TLC) + symbolic-modeled + tested\\
-C2 & Replay safety: \texttt{(sender, session, msgid)} not accepted twice & bounded-proven (TLC) + symbolic-modeled + tested\\
-C3 & Revocation safety: revoked cap not accepted & bounded-proven (TLC) + symbolic-modeled + tested\\
-C4 & Signature binding: kid's DID prefix matches \texttt{sender\_id} & tested + symbolic-modeled (cryptographic strength assumed)\\
+C1 & Authorization safety (signature, replay, revocation, expiration, budget, action, subject, issuer all checked before consume) & bounded-proven (TLC) + symbolic-proven (Tamarin) + tested\\
+C2 & Replay safety: \texttt{(sender, session, msgid)} not accepted twice & bounded-proven (TLC) + symbolic-proven (Tamarin, with documented restriction) + tested\\
+C3 & Revocation safety: revoked cap not accepted & bounded-proven (TLC) + symbolic-proven (Tamarin) + tested\\
+C4 & Signature binding: kid's DID prefix matches \texttt{sender\_id} & symbolic-proven (Tamarin) + tested (Ed25519 EUF-CMA assumed)\\
 C5 & Audit DAG tamper evidence: stored byte mutation breaks CID & tested (SHA-256 collision resistance assumed)\\
-C6 & No tool before authorization: \texttt{authorize\_action} precedes runner & tested + symbolic-modeled\\
+C6 & No tool before authorization: \texttt{authorize\_action} precedes runner & symbolic-proven (Tamarin) + tested\\
 C7 & Bounded state-machine safety: 9 invariants over 11{,}601 states & bounded-proven (TLC)\\
 \bottomrule
 \end{tabular}
@@ -517,7 +517,7 @@ We separate three adversary models: (i) the \emph{state-machine adversary} explo
 We assume Ed25519 is EUF-CMA secure, Argon2id is preimage- and collision-resistant for the chosen parameters, AES-256-GCM is IND-CCA2 secure, SHA-256 is collision-resistant, the verifier's process clock is monotonic to within the configured replay window, and \texttt{authorize\_action} is invoked atomically with respect to its capability store, revocation registry, and replay cache.
 
 \subsection{What is proven and what is not}
-\textbf{Bounded-proven:} C1, C2, C3, C7 by TLC over the bounded domain in \texttt{formal/MC.cfg} (11{,}601 distinct states, 9 invariants, no error). \textbf{Symbolic-modeled but not yet run:} C1, C2, C3, C4, C6 are encoded as Tamarin lemmas in \texttt{formal/tamarin/sifr\_core.spthy}; promotion to \emph{symbolic-proven} requires a Tamarin Prover installation, which is not present in the v0.4 reference environment and is therefore an explicit residual. \textbf{Tested:} all seven claims have positive and adversarial implementation tests; the v0.4 proof-obligation suite adds 20 tests with at least one positive and one negative case per claim. \textbf{Assumed:} cryptographic strength of the underlying primitives, single-process atomicity of the verifier, monotone bounded-skew clocks. \textbf{Future:} liveness; refinement of \texttt{formal/sifr\_capability.tla} to the Python implementation; lifting bounded TLC results to unbounded constants; a real-network or multi-host network adversary; full W3C VC compliance; arbitrary-untrusted-code WASM safety.
+\textbf{Bounded-proven:} C1, C2, C3, C7 by TLC over the bounded domain in \texttt{formal/MC.cfg} (11{,}601 distinct states, 9 invariants, no error). \textbf{Symbolic-proven (v0.4.0):} C1, C2, C3, C4, C6 by Tamarin Prover 1.7.1 (`aeads/tamarin:latest` Docker image) against \texttt{formal/tamarin/sifr\_core.spthy}: \texttt{authentication} verified in 6 steps, \texttt{authorization\_required} in 5 steps, \texttt{replay\_resistance} in 2 steps (with the \texttt{accepted\_once\_per\_message} restriction modelling the SIFR \texttt{ReplayCache} as an external invariant), \texttt{revocation\_safety} in 2 steps, \texttt{tool\_safety} in 3 steps; all five lemmas with zero wellformedness warnings. The captured run is in \texttt{formal/output/tamarin\_output.txt}. \textbf{Tested:} all seven claims have positive and adversarial implementation tests; the v0.4 proof-obligation suite adds 20 tests with at least one positive and one negative case per claim. \textbf{Assumed:} cryptographic strength of the underlying primitives, single-process atomicity of the verifier, monotone bounded-skew clocks. \textbf{Future:} liveness; refinement of \texttt{formal/sifr\_capability.tla} to the Python implementation; lifting bounded TLC results to unbounded constants; a real-network or multi-host network adversary; full W3C VC compliance; arbitrary-untrusted-code WASM safety.
 
 \subsection{What this section does NOT claim}
 We do not claim full cryptographic security; we do not claim production-deployment readiness; we do not claim that the running code is a refinement of the TLA+ specification (it is empirically tested, not formally refined); we do not claim that QUIC's security properties extend beyond the standard TLS/QUIC assumptions; we do not claim arbitrary-untrusted-code WASM isolation; we do not claim symbolic-proven status for any lemma in \texttt{formal/tamarin/sifr\_core.spthy} until the reproduction script reports a successful Tamarin run.

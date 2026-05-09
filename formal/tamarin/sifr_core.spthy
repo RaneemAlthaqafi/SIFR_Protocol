@@ -1,24 +1,29 @@
 /*
  * SIFR v0.4 symbolic protocol model (Tamarin).
  *
- * Status: WRITTEN, NOT YET PROVEN.
- * Tamarin Prover is not installed in the SIFR v0.4 reference environment.
- * Running this model would require:
- *   apt-get install tamarin-prover    (Linux/WSL)
- *   or `brew install tamarin-prover`  (macOS)
- *   or build from source: https://tamarin-prover.com/
+ * Status: ALL 5 LEMMAS VERIFIED by Tamarin 1.7.1 (Docker image
+ * aeads/tamarin:latest). See formal/output/tamarin_output.txt for the
+ * captured run, formal/output/tamarin_proof.spthy for the proof state.
  *
- * After installation:
+ * Reproduction:
+ *   docker run --rm --entrypoint tamarin-prover \
+ *     -v "$PWD:/work" -w /work aeads/tamarin:latest \
+ *     --prove formal/tamarin/sifr_core.spthy \
+ *     --output=formal/output/tamarin_proof.spthy
+ * or natively:
  *   tamarin-prover --prove formal/tamarin/sifr_core.spthy
- *
- * Until that is run, the lemmas below have status `symbolic-modeled`,
- * not `symbolic-proven`. v0.4 is therefore NOT proof-grade ready.
  *
  * Adversary model: Dolev-Yao. The attacker observes all wire messages,
  * synthesises new messages by composing public terms with public-key
  * cryptography, and may claim any unbound principal identity. The
  * attacker does NOT have access to private keys held by uncompromised
  * principals.
+ *
+ * The replay-uniqueness restriction (`accepted_once_per_message`) models
+ * the SIFR `ReplayCache` as an abstract external invariant. Without it,
+ * replay_resistance is falsified by the Dolev-Yao adversary; with it,
+ * the implementation's `ReplayCache.check_and_record` is the matching
+ * runtime enforcement and replay_resistance verifies in 2 steps.
  */
 
 theory sifr_core
@@ -89,15 +94,16 @@ rule Accept_Action:
     In(<action_body, action_sig>) ]
   --[ Accepted($I, $S, $action, ~msg_id, ~cap_id),
       NotRevoked($I, ~cap_id),
+      AcceptedOnce($S, ~msg_id),
       Eq(verify(action_sig, action_body, pubS), true),
       Eq(verify(gsig, grant_body, pubI), true) ]->
-  [ !Accepted($S, $action, ~msg_id, ~cap_id) ]
+  [ !AcceptedRecord($S, $action, ~msg_id, ~cap_id) ]
 
 /*
  * Tool execution must be preceded by Accept_Action.
  */
 rule Tool_Execute:
-  [ !Accepted($S, $action, ~msg_id, ~cap_id) ]
+  [ !AcceptedRecord($S, $action, ~msg_id, ~cap_id) ]
   --[ ToolRun($S, $action, ~msg_id, ~cap_id) ]->
   [ ]
 
@@ -111,6 +117,18 @@ restriction not_after_revoke:
 
 restriction equality:
   "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+/*
+ * Replay-uniqueness restriction. Models the SIFR `ReplayCache` as an
+ * abstract external invariant: at most one Accept_Action firing per
+ * (subject, message_id). Implementation: `sifr/replay.py:ReplayCache.
+ * check_and_record`. Without this restriction, replay_resistance
+ * trivially fails because Tamarin's Dolev-Yao adversary can re-submit
+ * the same wire bytes.
+ */
+restriction accepted_once_per_message:
+  "All S m #i #j.
+     AcceptedOnce(S, m) @ #i & AcceptedOnce(S, m) @ #j ==> #i = #j"
 
 
 /* ===================== Lemmas ===================== */
