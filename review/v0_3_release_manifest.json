@@ -1,13 +1,13 @@
 {
   "version": "v0.3.1",
-  "git_commit": "574b06212723c2e79f8eaddfc4b255fb7994ab8e",
-  "git_describe": "v0.3.0-1-g574b062",
-  "timestamp_utc": "2026-05-09T01:56:05Z",
+  "git_commit": "a48627eb16d4691b5b667a0d11e3cbdbcc24e611",
+  "git_describe": "v0.3.1",
+  "timestamp_utc": "2026-05-09T01:59:20Z",
   "artifact": {
     "zip": "sifr-v0.3.1-research-artifact.zip",
-    "sha256": "a39e438f7895f9a1b74fcbddb524e801af6b53bb9f38640e4d1894ce6d079869",
-    "files": 193,
-    "bytes": 1291433
+    "sha256": "4d6427f138722c2134a19946f406c0d2b83f54db0f39336552412f42bc1bab7c",
+    "files": 194,
+    "bytes": 1296127
   },
   "overleaf": {
     "zip": "sifr-v0.3.1-overleaf-ready.zip",
