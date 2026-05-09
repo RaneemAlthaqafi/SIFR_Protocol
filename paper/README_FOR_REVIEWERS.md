@@ -1,42 +1,44 @@
-# SIFR v0.2 Paper Package
+# SIFR Paper Package For Reviewers
 
-This package contains the IEEE-style paper source for SIFR v0.2, a research artifact for signed, typed, capability-checked AI-agent communication.
+This folder contains the LNCS-style paper source for:
 
-Reviewers should also read the repository-root `REVIEWER_GUIDE.md`, which lists supported claims, non-claims, and known workflow gaps.
+**SIFR: A Proof-Carrying Protocol for Secure Interchange in Federated AI-Agent Services**
 
-## Researchers
+The target venue is ICWS 2026, whose submission page requires Springer LNCS Proceedings style.
 
-- Raneem Althaqafi, althaqafi.raneem@gmail.com
-- Majid Althaqafi, imajedmuhammad@gmail.com
+## Contents
 
-## What the Paper Claims
+- `main.tex` — LNCS-style paper source.
+- `references.bib` — bibliography.
+- `figures/` — architecture, handshake, audit DAG, benchmark, and proof/evaluation figures.
+- `overleaf_upload_instructions.md` — instructions for using Overleaf's LNCS template.
 
-SIFR v0.2 demonstrates a reproducible prototype with:
+## Reviewer Scope
 
-- signed typed agent frames,
-- capability authorization with replay and revocation checks,
-- encrypted-at-rest key management,
-- DID resolution for `did:web` and local `did:sifr`,
-- VC-inspired signed capability credentials,
-- WASM calculator execution through `wasmtime`,
-- real QUIC transport through `aioquic`, validated on localhost loopback,
-- content-addressed audit DAG verification,
-- an 11-case controlled adversary evaluation,
-- a TLA+ authorization model checked over 276,205 distinct states under 7 invariants.
+The paper presents SIFR as a research artifact for agent-native service communication. The central claim is that signed typed frames, constrained capability grants, replay and revocation checks, bounded tool execution, and audit-DAG lineage can be combined into one reproducible protocol artifact.
 
-The paper does not claim production readiness, W3C VC compliance, cryptographic proof, full DID interoperability, arbitrary untrusted WASM safety, distributed revocation/replay, real-network QUIC validation, full attack-surface coverage, or implementation equivalence to the formal model.
+Evidence included in the repository:
 
-## Figures Included
+- Python implementation under `sifr/`.
+- Secure two-agent QUIC/WASM/DID demo.
+- 190 implementation tests.
+- 30-case adversarial rejection suite.
+- TLA+ model checked by TLC: 9 invariants, 11,601 states.
+- Tamarin symbolic model: 5/5 lemmas verified.
+- Benchmark scripts, raw results, generated plots, and manifests.
 
-The `figures/` folder includes:
+## Non-Claims
 
-- protocol architecture and sequence diagrams,
-- v0.1 payload, signature, latency, and capability benchmark figures,
-- v0.2 DID, credential, replay, revocation, WASM, QUIC, adversary, and v0.1-v0.2 comparison figures,
-- `ieee_adversary_rejection.pdf`, a publication-style adversary rejection figure.
+The paper does not claim:
 
-All benchmark figures are generated from raw files under `benchmarks/results/` in the full repository.
+- production deployment readiness;
+- full W3C Verifiable Credential compliance;
+- HSM-grade key isolation or enterprise PKI;
+- arbitrary untrusted-code WASM safety;
+- Internet-scale or multi-host QUIC evaluation;
+- cryptographic proof of Ed25519, SHA-256, AES-GCM, or Argon2id;
+- implementation-refinement proof from Python to TLA+/Tamarin.
 
-## Compile
+## Compilation
 
-Upload this folder to Overleaf, set `main.tex` as the main file, and compile with pdfLaTeX.
+Use Overleaf's Springer LNCS template. If compiling locally, make sure `llncs.cls` and `splncs04.bst` are available.

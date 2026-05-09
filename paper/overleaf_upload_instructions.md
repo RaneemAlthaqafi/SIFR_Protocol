@@ -1,24 +1,34 @@
-# SIFR v0.2 Overleaf Upload Instructions
+# SIFR LNCS / Overleaf Upload Instructions
 
-1. Go to Overleaf.
-2. Create a new project.
-3. Upload the contents of this paper package directly.
-4. Set the main file to `main.tex`.
-5. Ensure the complete `figures/` folder is included. It contains the architecture diagrams, v0.1 benchmark figures, v0.2 benchmark figures, and the IEEE-style adversary rejection PDF.
-6. Ensure `references.bib` is included.
+The target venue is ICWS 2026. The ICWS submission page requires Springer LNCS Proceedings style for Research, Application, and Short Paper tracks.
+
+1. Go to https://www.overleaf.com.
+2. Create a new project using Overleaf's **Springer Lecture Notes in Computer Science** / **LNCS** template.
+3. Replace the template `main.tex` with this project's `paper/main.tex`.
+4. Upload `paper/references.bib`.
+5. Upload the complete `paper/figures/` folder.
+6. Set the main file to `main.tex`.
 7. Compile with pdfLaTeX.
-8. If `IEEEtran.cls` is missing, use Overleaf's built-in IEEE template and replace its `main.tex` with this project's `main.tex`.
+8. If `llncs.cls` or `splncs04.bst` is missing, start from Overleaf's built-in LNCS template and copy this project's `main.tex`, `references.bib`, and `figures/` into it.
 
-The paper names the researchers as:
+Expected paper class:
+
+```tex
+\documentclass[runningheads]{llncs}
+```
+
+ICWS page checked on 2026-05-09:
+
+- Research/Application manuscripts: 15 pages, LNCS style.
+- Short Paper manuscripts: 8 pages, LNCS style.
+- Conference theme: Agentic AI as a Service.
+
+Authors:
 
 - Raneem Althaqafi, althaqafi.raneem@gmail.com
 - Majid Althaqafi, imajedmuhammad@gmail.com
 
-Reviewer scope note:
+Local compilation note:
 
-- QUIC is evaluated on localhost loopback only.
-- Credentials are VC-inspired, not W3C VC compliant.
-- The TLA+ artifact is bounded model checking, not a cryptographic proof.
-- WASM evidence covers the included calculator and adversarial fixtures, not arbitrary untrusted code.
-
-Local compilation was not performed in this workspace because `pdflatex` is not installed.
+- This workspace may not have a local TeX installation.
+- Overleaf's LNCS template is the recommended compilation environment.

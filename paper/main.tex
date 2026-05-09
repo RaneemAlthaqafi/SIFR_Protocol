@@ -1,574 +1,353 @@
-\documentclass[conference]{IEEEtran}
-\usepackage{cite}
+\documentclass[runningheads]{llncs}
+
+\usepackage[T1]{fontenc}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{url}
 \usepackage{array}
+\usepackage{url}
 \usepackage{listings}
+\usepackage{xcolor}
 
-\lstset{basicstyle=\ttfamily\scriptsize, columns=fullflexible, breaklines=true, frame=single}
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  columns=fullflexible,
+  breaklines=true,
+  frame=single,
+  keepspaces=true
+}
 
-\title{SIFR: Secure Interchange for Federated Reasoning --- Structured and Verifiable AI-Agent Communication}
+\title{SIFR: A Proof-Carrying Protocol for Secure Interchange in Federated AI-Agent Services}
+\titlerunning{SIFR for Federated AI-Agent Services}
 
-\author{\IEEEauthorblockN{Raneem Althaqafi, Majid Althaqafi}
-\IEEEauthorblockA{Independent Researchers\\
-Email: althaqafi.raneem@gmail.com, imajedmuhammad@gmail.com}}
+\author{Raneem Althaqafi \and Majid Althaqafi}
+\authorrunning{R. Althaqafi and M. Althaqafi}
+\institute{Independent Researchers\\
+\email{althaqafi.raneem@gmail.com, imajedmuhammad@gmail.com}}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Current AI-agent systems rely heavily on web-era protocols and ad hoc message formats, including HTTP APIs, JSON-RPC, Server-Sent Events, WebSockets, plain JSON function calls, and free-form natural language messages. These mechanisms are useful and widely deployed, but they were not designed as a native substrate for autonomous agents that must prove identity, exchange constrained capabilities, invoke tools safely, and preserve auditable reasoning and execution lineage. This paper presents SIFR, Secure Interchange for Federated Reasoning, a protocol design that binds signed typed frames, explicit capability grants, replay and revocation checks, sandboxed tool execution, and content-addressed audit lineage into one executable communication model.
+Agentic AI systems are rapidly becoming service-oriented systems: agents discover tools, call remote capabilities, delegate subtasks, stream observations, and coordinate with other agents. Yet much of today's agent communication is still encoded as free-form text or ad hoc JSON over web-era interfaces. Those carriers are useful, but they do not provide agent-native semantics for typed intent, cryptographic sender binding, delegated authorization, replay resistance, revocation, safe tool invocation, and auditable reasoning lineage. This paper presents SIFR, Secure Interchange for Federated Reasoning, a protocol and artifact for signed, typed, capability-checked communication among AI agents.
 
-The evaluated implementation includes encrypted-at-rest key management with rotation and revocation metadata (Argon2id KDF, AES-256-GCM with kid-bound AAD); DID resolution for did:web (over HTTP/HTTPS) and a local did:sifr method; VC-inspired capability credentials with mutation defenses; signed capability revocation with on-load signature re-verification; replay protection bound to (sender, session, message\_id) over a sliding timestamp window; sandboxed WASM tool execution via wasmtime with no WASI imports linked and per-call fuel limits; a QUIC transport via aioquic with ALPN-negotiated connections evaluated on both \texttt{127.0.0.1} loopback and a single-host Docker bridge with \texttt{tc qdisc} NetEm impairment (delay 20\,ms, loss 1\%, loss 5\%); a 30-case strict controlled adversary evaluation; and a TLA+ model of the capability authorization state machine, model-checked with TLC across 11{,}601 distinct states under 9 invariants. The end-to-end vertical slice runs over QUIC on localhost and exits with the expected output (\texttt{Result: 5}, \texttt{Demo completed successfully.}). Measurements show signed SIFR action frames of 411 bytes versus 53 bytes for a plain JSON action, Ed25519 signing at 0.0314\,ms, verification at 0.0615\,ms, sign+verify+DAG append at 0.1104\,ms, DID:sifr cold resolution at 0.068--0.077\,ms, QUIC loopback round-trip at 0.42\,ms (mean) versus 22.0\,ms with 20\,ms NetEm delay and 31.9\,ms p95 with 5\% loss, WASM warm execution at 40.6\,$\mu$s, and reject latencies for the 30 strict adversary classes between 2\,$\mu$s and 4584\,$\mu$s (the WASM filesystem-import attack is the slowest because it includes module instantiation). We make explicit non-claims: no W3C VC compliance, no cryptographic proof, no HSM- or PKI-grade key isolation, no distributed revocation, no arbitrary-untrusted-code WASM safety, no Internet-scale or multi-host network evaluation, and no production-deployment readiness. These results support the central claim that structured, signed, capability-checked agent communication can be implemented with measurable overhead while preserving verifiable authorization and audit evidence.
+SIFR represents agent communication as canonical signed frames, authorizes actions through constrained capability grants, rejects replayed and revoked requests, records content-addressed audit-DAG lineage, and invokes tools only after authorization. The artifact includes a Python implementation, QUIC transport, WASM calculator execution, DID-style key lookup, VC-inspired capability credentials, benchmark scripts, adversarial tests, a bounded TLA+ model, and a Tamarin symbolic model. The evaluated vertical slice runs a two-agent service workflow: hello, capability offer, capability grant, signed action, authorization, tool execution, signed observation, and audit verification. Empirical measurements show a signed action frame of 411 bytes versus a 53-byte plain JSON action, Ed25519 signing at 0.0314 ms, verification at 0.0615 ms, sign+verify+DAG append at 0.1104 ms, QUIC loopback round-trip at 0.42 ms, and Docker/NetEm QUIC behavior under 20 ms delay and 1--5\% loss. The security evidence includes 190 implementation tests, a 30-case adversarial rejection suite, TLC verification of 9 invariants over 11,601 states, and Tamarin verification of five symbolic lemmas: authentication, authorization, replay resistance, revocation safety, and tool-safety. SIFR is not a production deployment claim; rather, it is a proof-carrying research artifact showing how a native protocol for AI-agent services can bind structure, authorization, execution, and audit evidence into one reproducible system.
+
+\keywords{AI agents \and Web services \and service protocols \and capability security \and formal verification \and Tamarin \and TLA+ \and audit logs}
 \end{abstract}
 
-\begin{IEEEkeywords}
-AI agents, multi-agent systems, protocol design, capability security, Ed25519, audit logs, provenance, tool use
-\end{IEEEkeywords}
-
 \section{Introduction}
-Large language model (LLM) agents are increasingly deployed as systems that reason, call tools, retrieve context, delegate subtasks, and coordinate with other agents. In practice, these interactions are often represented as text or JSON carried over web infrastructure. A typical system may encode a tool call as a JSON object, send it over HTTP, stream partial results through Server-Sent Events, or pass a natural language transcript from one agent to another. This approach is pragmatic, but it leaves important semantics outside the protocol layer: whether a message is a thought, action, observation, tool invocation, critique, error, or final result; whether the sender is authorized to request the action; whether the permission is bounded and revocable; and whether an auditor can later verify the lineage of the interaction.
 
-Recent interoperability work has begun to address adjacent problems. The Model Context Protocol (MCP) standardizes how model hosts connect to tools, prompts, and resources over JSON-RPC \cite{mcp2024spec,anthropic2024mcp}. Agent2Agent (A2A) targets heterogeneous agent discovery and task exchange \cite{a2a2025spec,google2025a2a}. IBM/BeeAI's Agent Communication Protocol (ACP) explored HTTP-native agent messaging and has become closely related to the A2A ecosystem \cite{beeai2025acp,ibm2025acp}. The Agent Network Protocol (ANP) explores identity, encrypted communication, and protocol negotiation for open agent networks \cite{chang2025anp,anp2025didwba}. These efforts are valuable, but a research gap remains: a minimal, reproducible, agent-native frame design that binds typed semantics, cryptographic integrity, fine-grained capabilities, and content-addressed audit lineage in one executable protocol.
+The next generation of Web services is becoming agentic. Instead of a human client manually invoking a fixed endpoint, an AI agent may discover a service, negotiate capabilities, call tools, inspect observations, delegate subtasks, and return a result to another agent. This shift is visible in current work on tool-using language models, agent interoperability, model-context protocols, and agent-to-agent systems. It also aligns with the theme of Agentic AI as a Service: agents are becoming service clients, service providers, and service orchestrators.
 
-This paper investigates that gap through SIFR, Secure Interchange for Federated Reasoning. SIFR is not presented as a replacement for HTTP, MCP, A2A, ACP, or ANP. Instead, the paper asks a narrower research question: what does a verifiable agent communication protocol look like if every meaningful action is represented as a signed typed frame, authorized by a signed capability grant, checked for replay and revocation, executed through a bounded tool interface, and recorded in an audit DAG?
+The communication layer has not fully caught up. Many deployed systems still treat an agent message as text, a chat transcript, or a loosely structured JSON object carried by HTTP, JSON-RPC, Server-Sent Events, or WebSockets. These mechanisms are valuable transport and integration tools, but they leave important agent semantics outside the protocol layer. A verifier often has to infer whether a message is a thought, an action, an observation, a critique, a result, or an error. Authorization may be encoded as an API key or bearer token rather than a narrow delegation tied to a specific agent, action, resource, time interval, and budget. Tool execution may occur before a durable audit trail can prove which signed request caused it.
 
-The contributions of this work are:
+This paper studies a concrete question: what would an agent-native service protocol look like if typed semantics, signatures, capability grants, replay protection, revocation, tool execution, and audit lineage were protocol-level properties rather than application conventions? We answer through SIFR, Secure Interchange for Federated Reasoning. SIFR is a protocol design and reproducible artifact for secure interchange among federated AI agents. The central design principle is simple: every meaningful action is a signed typed frame, authorized by a signed capability, checked for replay and revocation, executed through a bounded tool interface, and recorded in a content-addressed audit DAG.
+
+SIFR does not claim to replace HTTP, MCP, A2A, ACP, ANP, or QUIC. Instead, it isolates a missing layer: a signed and auditable agent frame model that can be carried over a local transport, QUIC, or future interoperability adapters. This separation is useful for Web-service settings because it lets service providers reason about agent intent and authority independently of the byte carrier.
+
+The contributions are:
 \begin{itemize}
-\item A protocol model for signed, typed AI-agent frames with explicit action, observation, result, error, critique, capability, and TensorFrame message types.
-\item A minimal capability layer that binds issuer, subject, allowed actions, resource scope, expiration, budget, and delegation constraints.
-\item A content-addressed audit DAG for verifiable message lineage.
-\item An executable Python implementation of the complete two-agent calculator workflow over QUIC and WASM.
-\item Unit tests, negative authorization and tampering tests, benchmark scripts, raw benchmark outputs, generated figures, and IEEE-style paper source.
+  \item A protocol architecture for typed, signed, capability-checked AI-agent service messages.
+  \item A proof-carrying artifact that links protocol claims to code, tests, TLA+ invariants, and Tamarin lemmas.
+  \item A complete implementation of a two-agent service workflow over QUIC with WASM-backed tool execution and audit-DAG lineage.
+  \item A controlled adversarial evaluation showing that unauthorized, replayed, revoked, tampered, malformed, and audit-breaking actions are rejected before tool execution.
+  \item Benchmarks quantifying payload size, signing and verification cost, local latency, QUIC behavior, capability enforcement, replay overhead, revocation lookup, DID resolution, credential verification, and WASM execution.
 \end{itemize}
 
 \section{Background and Related Work}
-\subsection{Agent Communication Languages}
-Structured agent communication predates LLMs. KQML represented agent messages using performatives for knowledge and query exchange \cite{finin1997kqml}. FIPA ACL specified message structures and communicative acts such as request and inform \cite{fipa2002aclmessage,fipa2002communicativeacts}. These systems established that agent messages benefit from explicit semantics. However, they were designed for symbolic multi-agent systems rather than modern LLM agents that call external tools, consume untrusted retrieved content, and execute generated workflows.
 
-\subsection{Tool-Using LLM Agents}
-ReAct showed that interleaving reasoning traces and actions can improve language model performance on tasks requiring environment interaction \cite{yao2023react}. Toolformer demonstrated that language models can learn when and how to call external tools \cite{schick2023toolformer}. TalkHier argues that structured communication and hierarchical refinement can improve multi-agent systems \cite{wang2025talkhier}. These works support the premise that agent communication should distinguish reasoning, actions, and observations. They do not, by themselves, define a cross-agent security or audit protocol.
+\subsection{Agent Communication}
 
-\subsection{Modern Agent Interoperability Protocols}
-MCP addresses the integration of models with external context and tools \cite{mcp2024spec,anthropic2024mcp}. A2A focuses on agent discovery, task exchange, modality negotiation, and enterprise interoperability \cite{a2a2025spec,google2025a2a}. ACP explored rich messages, streaming, long-running tasks, and shared state in an HTTP-native agent communication layer \cite{beeai2025acp,ibm2025acp}. ANP proposes identity-oriented agent networking with protocol negotiation \cite{chang2025anp}. SIFR differs in scope: it focuses on signed frame semantics, capability enforcement, and audit DAG lineage. Protocol adapters could transport SIFR frames through existing ecosystems, but deployed interoperability is outside the present evaluation.
+Structured agent communication predates large language models. KQML and FIPA ACL introduced performatives and communicative acts for symbolic multi-agent systems \cite{finin1997kqml,fipa2002aclmessage,fipa2002communicativeacts}. Their central lesson remains relevant: agent messages benefit from explicit semantics. Modern LLM agents, however, introduce new service-level requirements. They call external tools, consume untrusted context, act under delegated authority, and produce traces that should be auditable after execution.
+
+ReAct showed that interleaving reasoning and acting can improve language-model interaction with environments \cite{yao2023react}. Toolformer showed that models can learn to use tools through self-supervised signals \cite{schick2023toolformer}. Recent structured multi-agent work such as TalkHier argues that structured communication can improve coordination \cite{wang2025talkhier}. SIFR builds on the idea that actions and observations should be explicit, but focuses on protocol-level integrity and authorization.
+
+\subsection{Agent Interoperability Protocols}
+
+The Model Context Protocol (MCP) standardizes how model hosts connect to tools, resources, and prompts over JSON-RPC \cite{mcp2024spec,anthropic2024mcp}. Agent2Agent (A2A) targets heterogeneous agent discovery and task exchange \cite{a2a2025spec,google2025a2a}. IBM/BeeAI's Agent Communication Protocol explored HTTP-native messages, streaming, and long-running tasks \cite{beeai2025acp,ibm2025acp}. The Agent Network Protocol studies identity-oriented networking for open agent systems \cite{chang2025anp,anp2025didwba}. These efforts solve important interoperability problems. SIFR targets a narrower and complementary question: how to make each agent action a signed, typed, authorized, replay-checked, revocation-aware, and audit-linked protocol event.
 
 \subsection{Security, Identity, and Provenance}
-NIST Zero Trust guidance emphasizes per-request access decisions rather than implicit trust in the network perimeter \cite{rose2020zerotrust}. DID Core and Verifiable Credentials provide standards for decentralized identifiers and cryptographically verifiable claims \cite{w3c2022did,w3c2025vc}. SIFR uses DID-style identity resolution and VC-inspired signed capability credentials to bind an agent identity to constrained actions. Merkle DAGs provide content-addressed structures where node identifiers are derived from content and links \cite{ipfs2025merkledag}. Supply-chain provenance work such as SLSA motivates attestable workflows and reproducible evidence \cite{slsa2025spec}.
+
+Zero Trust architecture emphasizes resource-specific, per-request decisions instead of implicit network trust \cite{rose2020zerotrust}. DID Core and Verifiable Credentials specify decentralized identifiers and verifiable claims \cite{w3c2022did,w3c2025vc}. SIFR uses DID-style key binding and VC-inspired capability credentials, but does not claim full W3C VC compliance. Its credential layer signs constrained capability claims over canonical JSON rather than using JSON-LD processing or RDF canonicalization.
+
+Content-addressed structures such as Merkle DAGs support tamper-evident lineage \cite{ipfs2025merkledag}. Supply-chain provenance work such as SLSA motivates reproducible evidence and verifiable artifact metadata \cite{slsa2025spec}. SIFR applies those ideas to agent messages: message CIDs are derived from canonical content and parent links form an audit DAG.
 
 \subsection{Transport and Sandboxing}
-QUIC provides multiplexed streams and integrated transport security \cite{iyengar2021quic}, and HTTP/3 carries HTTP semantics over QUIC \cite{bishop2022http3}. SIFR evaluates a QUIC backend for signed agent frames on localhost loopback. WebAssembly and WASI motivate portable sandboxing for tool execution \cite{w3c2019wasm,wasi2024interfaces}; SIFR uses wasmtime to execute a bounded calculator module without linking WASI imports.
 
-\subsection{Agent-Specific Risks}
-Prompt injection research shows that LLM-integrated applications can be manipulated through untrusted content, including content that indirectly affects tool behavior \cite{greshake2023indirectpi,liu2024promptinjection}. OWASP LLM and MCP security guidance identifies tool poisoning, command injection, prompt injection, and unsafe tool execution as major risks \cite{owasp2025llmtop10,owasp2026mcptop10}. Embedding inversion and KV-cache leakage work cautions against assuming that latent or vector representations are private \cite{morris2023embeddingprivacy,luo2026shadowcache}. These risks motivate SIFR's explicit authorization and audit design.
+QUIC provides multiplexed, secure transport over UDP \cite{iyengar2021quic}; HTTP/3 maps HTTP semantics onto QUIC \cite{bishop2022http3}. SIFR implements a QUIC backend using aioquic \cite{aioquic}, while retaining a transport abstraction so the message and authorization layers can be tested independently. WebAssembly and WASI motivate portable sandboxing \cite{w3c2019wasm,wasi2024interfaces}. The artifact uses wasmtime \cite{wasmtime} for a bounded calculator module with no WASI imports and fuel limits.
+
+\subsection{Agent Threats}
+
+Prompt injection research shows that untrusted content can manipulate LLM-integrated applications and tool behavior \cite{greshake2023indirectpi,liu2024promptinjection}. OWASP guidance identifies prompt injection, tool misuse, tool poisoning, and unsafe execution as risks for LLM and MCP-style systems \cite{owasp2025llmtop10,owasp2026mcptop10}. Embedding and KV-cache leakage work cautions that vector or latent representations can expose information \cite{morris2023embeddingprivacy,luo2026shadowcache}. SIFR does not solve all of these problems, but it gives service operators a protocol-level place to bind authority, execution, and audit evidence.
 
 \section{Problem Statement}
-The central problem is not that HTTP or JSON are inadequate as byte carriers. The problem is that common agent communication stacks treat agent messages as application-defined objects whose semantics and authorization are often enforced inconsistently outside the communication layer. This creates at least five gaps.
 
-First, message intent is ambiguous. A model-generated string may contain reasoning, a command, a partial observation, a critique, or a final answer, but the transport does not enforce a typed distinction. Second, identity and authorization are often ambient. API keys or bearer tokens may grant broad authority without binding the individual agent action to a constrained capability. Third, audit logs are frequently append-only text traces rather than cryptographically verifiable lineage structures. Fourth, tool execution may occur without a protocol-level proof that the action was allowed. Fifth, compact non-text channels such as embeddings or latent representations require careful framing and privacy warnings.
+Existing agent-service stacks commonly encode actions as application JSON or natural language over generic transports. This is practical, but it leaves five gaps.
 
-SIFR therefore tests whether a minimal protocol can bind the following invariant: every meaningful action is a signed typed message, checked against a signed capability, executed through a bounded tool interface, and recorded in a content-addressed audit DAG.
+\textbf{Typed intent gap.} A receiver may not know whether a message is a non-binding thought, a tool action, an observation, a critique, an error, or a final result.
 
-\section{Design Goals and Hypotheses}
-The evaluation considers six hypotheses:
+\textbf{Delegated authorization gap.} A broad token may authorize too much. Agents need grants scoped by issuer, subject, action, resource, time, budget, and delegation policy.
 
-\textbf{H1:} Structured signed agent messages provide clearer audit semantics than generic JSON messages.
+\textbf{Replay and revocation gap.} A signed message can still be replayed if the receiver does not maintain message freshness state. A previously valid grant should fail once the verifier knows it has been revoked.
 
-\textbf{H2:} Capability grants can prevent unauthorized actions in a minimal two-agent workflow.
+\textbf{Tool-safety gap.} Tool execution should be causally downstream of signature verification, capability authorization, replay checks, and revocation checks.
 
-\textbf{H3:} An audit DAG can detect missing parents and message tampering.
+\textbf{Auditability gap.} Text logs are useful, but they usually do not provide content-addressed lineage that detects missing parents or message mutation.
 
-\textbf{H4:} Signed SIFR frames introduce measurable overhead, but local Ed25519 cost is small enough for integrity-sensitive agent workflows.
+SIFR's research claim is that these gaps can be addressed by a compact protocol layer whose claims are tied to executable tests, formal models, and benchmark evidence.
 
-\textbf{H5:} TensorFrame base64 binary encoding can be more compact than naive JSON-list encoding for numeric vectors.
+\section{Protocol Design}
 
-\textbf{H6:} A transport abstraction allows local testing while preserving an implementation boundary for QUIC transport.
+Figure~\ref{fig:architecture} shows the architecture. An agent application creates typed SIFR frames. The message layer canonicalizes and signs frames. The capability layer checks authorization. The replay and revocation layers reject stale or revoked authority. The audit layer records content-addressed lineage. The tool layer executes only after authorization. The transport layer can be local for tests or QUIC for networked execution.
 
-\section{SIFR Protocol Architecture}
-Figure~\ref{fig:architecture} summarizes the SIFR layers. The implemented layers include the structured message layer, capability layer, cryptographic verification layer, DID resolution, VC-inspired credentials, replay and revocation checks, audit DAG, TensorFrame demonstration encoding, WASM calculator execution, local transport, and QUIC transport. The QUIC evidence in this paper is loopback evidence, not real-network or Internet-scale evaluation.
-
-\begin{figure}[t]
+\begin{figure}
 \centering
-\includegraphics[width=\linewidth]{figures/architecture.png}
-\caption{SIFR layered architecture for signed, capability-checked agent communication.}
+\includegraphics[width=0.88\textwidth]{figures/architecture.png}
+\caption{SIFR layers for signed, capability-checked agent-service communication.}
 \label{fig:architecture}
 \end{figure}
 
 \subsection{Message Envelope}
-Every SIFR message contains a protocol version, message identifier, session identifier, type, sender identifier, receiver identifier, UTC timestamp, parent CIDs, optional capability identifier, payload, and optional signature. The signature is computed over the canonical message without the signature field. The implemented message types are Hello, CapabilityOffer, CapabilityGrant, Thought, Action, ToolUse, Observation, Result, Critique, Error, and TensorFrame.
 
-\subsection{Canonicalization and Signatures}
-The implementation canonicalizes messages by removing the signature field, sorting JSON keys, using compact JSON separators, and encoding UTF-8. Ed25519 signatures are generated and verified using the \texttt{cryptography} library. Verification fails if the payload, sender, or any signed field changes after signing.
+A SIFR frame contains a version, message identifier, session identifier, type, sender identifier, receiver identifier, UTC timestamp, parent CIDs, optional capability identifier, payload, and optional signature. Implemented message types include \texttt{Hello}, \texttt{CapabilityOffer}, \texttt{CapabilityGrant}, \texttt{Thought}, \texttt{Action}, \texttt{ToolUse}, \texttt{Observation}, \texttt{Result}, \texttt{Critique}, \texttt{Error}, and \texttt{TensorFrame}.
 
-\subsection{Capabilities}
-A CapabilityGrant payload binds an issuer, subject, allowed actions, resource scope, issue time, expiration time, call budget, payload-size budget, and delegation constraint. The action verifier checks the grant signature, issuer consistency, subject match, action membership, expiration, payload size, call budget, and delegation policy before tool execution.
+The signature is computed over the canonical frame without the signature field. Canonicalization sorts keys, uses compact JSON separators, and encodes UTF-8. This gives deterministic signing and makes post-signature mutation detectable.
+
+\subsection{Capability Grants}
+
+A capability grant binds:
+\[
+  \langle issuer, subject, actions, resources, issued\_at, expires\_at, budget, constraints \rangle .
+\]
+The verifier checks issuer signature, issuer identity, subject identity, action membership, resource scope, expiration, payload-size budget, call budget, delegation constraints, replay status, and revocation status. A correctly signed action is not sufficient; the referenced grant must also authorize the action.
 
 \subsection{Audit DAG}
-Each accepted message can be added to an audit DAG. The CID is computed as SHA-256 over canonical message bytes without the signature field. Nodes record CID, message id, message type, sender, receiver, parents, timestamp, and signature-valid status. The DAG verifier detects missing parents, invalid signature flags, and stored-message mutation.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/handshake_sequence.png}
-\caption{Two-agent SIFR handshake and execution sequence.}
-\label{fig:handshake}
-\end{figure}
+Each accepted message can be inserted into an audit DAG. A node stores a CID, message id, type, sender, receiver, parents, timestamp, and signature-valid flag. The CID is SHA-256 over canonical message bytes without the signature field. The verifier rejects missing parents and detects mutation by recomputing CIDs. Figure~\ref{fig:dag} illustrates the vertical slice lineage.
 
-\begin{figure}[t]
+\begin{figure}
 \centering
-\includegraphics[width=\linewidth]{figures/audit_dag.png}
-\caption{Audit DAG for the implemented vertical slice.}
+\includegraphics[width=0.78\textwidth]{figures/audit_dag.png}
+\caption{Audit DAG for the evaluated SIFR workflow.}
 \label{fig:dag}
 \end{figure}
 
-\section{Prototype Implementation}
-The implementation is organized as a Python package with examples, tests, benchmarks, documentation, paper source, and formal artifacts. Table~\ref{tab:implementation} summarizes the evaluated components. The complete demo creates two agents: \texttt{did:sifr:planner} and \texttt{did:sifr:executor}. The planner sends a signed Hello. The executor sends a CapabilityOffer and a signed CapabilityGrant allowing \texttt{tool.calculator.add}. The planner sends a signed Action requesting addition of 2 and 3. The executor verifies the planner's signature, verifies the grant, enforces capability checks, records ToolUse, executes the WASM calculator, returns a signed Observation, and verifies the resulting audit DAG.
+\subsection{Workflow}
 
-\begin{table}[t]
-\caption{Implementation Summary}
-\label{tab:implementation}
+The evaluated workflow has two agents: a planner and an executor. The planner sends a signed \texttt{Hello}. The executor offers a calculator capability and issues a signed grant. The planner sends a signed \texttt{Action} requesting addition. The executor verifies the planner signature, validates the grant, checks replay and revocation state, appends \texttt{ToolUse}, executes the WASM calculator, returns a signed \texttt{Observation}, and verifies the audit DAG.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.88\textwidth]{figures/handshake_sequence.png}
+\caption{Two-agent SIFR handshake and service execution.}
+\label{fig:handshake}
+\end{figure}
+
+\section{Implementation}
+
+The artifact is implemented in Python and organized as a reusable package with examples, benchmarks, tests, formal models, and paper source. Table~\ref{tab:impl} summarizes major components.
+
+\begin{table}
+\caption{Implementation components and evidence}
+\label{tab:impl}
 \centering
 \begin{tabular}{lll}
 \toprule
-Component & Implementation & Evidence\\
+Component & Role & Evidence \\
 \midrule
-Typed envelope & Signed agent frame model & \texttt{sifr/messages.py}\\
-Ed25519 signing & Canonical JSON signatures & \texttt{sifr/crypto.py}\\
-Capability grants & Subject, action, expiry, budget, replay, revocation & \texttt{sifr/capabilities.py}\\
-Audit DAG & Content-addressed lineage verification & \texttt{sifr/audit\_dag.py}\\
-Local transport & In-process test transport & \texttt{sifr/transport/local.py}\\
-TensorFrame encoding & Binary payload demonstration & \texttt{sifr/tensor.py}\\
-Calculator tool & WASM execution through wasmtime & \texttt{sifr/wasm\_runner.py}\\
-QUIC transport & aioquic, ALPN \texttt{sifr/0.2} & \texttt{sifr/transport/quic.py}\\
-Key management & Argon2id + AES-256-GCM & \texttt{sifr/key\_management.py}\\
-DID resolution & did:web and local did:sifr & \texttt{sifr/did/}\\
-Capability credentials & VC-inspired signed credentials & \texttt{sifr/credentials.py}\\
-Revocation & Signed registry with reload verification & \texttt{sifr/revocation.py}\\
-Replay protection & Sliding-window replay cache & \texttt{sifr/replay.py}\\
-Adversary evaluation (v0.2) & 11 controlled attacks & \texttt{tests/test\_network\_adversary.py}\\
-Adversary evaluation (v0.3 strict) & 30 controlled attacks & \texttt{tests/test\_v0\_3\_adversary.py}\\
-Formal model & TLA+, 9 invariants, 11{,}601 states & \texttt{formal/sifr\_capability.tla}\\
+Messages & typed canonical frames & \texttt{sifr/messages.py} \\
+Crypto & Ed25519 signing and verification & \texttt{sifr/crypto.py} \\
+Capabilities & authorization and budgets & \texttt{sifr/capabilities.py} \\
+Replay & message freshness cache & \texttt{sifr/replay.py} \\
+Revocation & signed revocation registry & \texttt{sifr/revocation.py} \\
+DID & key resolution & \texttt{sifr/did/} \\
+Credentials & VC-inspired capability credentials & \texttt{sifr/credentials.py} \\
+Audit & content-addressed lineage & \texttt{sifr/audit\_dag.py} \\
+Transport & local and QUIC backends & \texttt{sifr/transport/} \\
+WASM & bounded calculator execution & \texttt{sifr/wasm\_runner.py} \\
+Formal & TLA+ and Tamarin models & \texttt{formal/} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\section{Security Model and Threat Analysis}
-SIFR assumes that each verifier can resolve the correct public key for the relevant agent through the configured key resolver. The evaluated security goal is to reject tampered frames, unsigned frames, wrong-key verification, expired grants, wrong-subject grants, unauthorized actions, over-budget actions, replayed messages, revoked grants, malformed frames, and audit-DAG mutation before unauthorized tool execution occurs.
+The implementation includes an encrypted file key store using Argon2id and AES-256-GCM with key identifier binding as associated data \cite{biryukov2016argon2}. It includes \texttt{did:web} and a local \texttt{did:sifr} method for testable key lookup. The credential layer is VC-inspired: it signs a capability credential structure and detects mutation, but does not implement JSON-LD context processing, URDNA2015 normalization, or W3C credential status lists.
 
-Listing~\ref{lst:verify} summarizes the implemented verifier logic. The key point is that signature verification and capability authorization are separate checks: a correctly signed Action can still be rejected if it lacks the right grant.
+\section{Formal Security Analysis}
 
-\begin{lstlisting}[caption={Capability and DAG verification sketch for SIFR.},label={lst:verify}]
-authorize(action, grant, issuer_pubkey, store):
-  verify_signature(action, sender_pubkey)
-  verify_signature(grant, issuer_pubkey)
-  require grant.payload.issuer == grant.sender_id
-  require action.capability_id == grant.capability_id
-  require grant.subject == action.sender_id
-  require action.payload.action in grant.actions
-  require now_utc < grant.expires_at
-  require size(action.payload) <= grant.max_payload_bytes
-  require store.calls(grant.id) < grant.max_calls
-  require not action.delegate_to or grant.allow_delegation
-  store.consume(grant.id)
-  return ALLOW
+SIFR is designed as a proof-carrying artifact: every security claim has a status, evidence, and limitation. We use four categories. \emph{Bounded-proven} means TLC checked a finite TLA+ state space. \emph{Symbolic-proven} means Tamarin verified a lemma under a Dolev--Yao model. \emph{Tested} means implementation tests exercise positive and adversarial cases. \emph{Assumed} means a standard cryptographic or systems assumption.
 
-verify_dag(dag):
-  for node in dag.nodes:
-    require sha256(canonical(node.message)) == node.cid
-    require node.signature_valid
-    for parent in node.parents:
-      require parent in dag.nodes
-  return OK
-\end{lstlisting}
+\subsection{Security Claims}
 
-\begin{table}[t]
-\caption{Threat Handling in SIFR}
-\label{tab:threats}
+Table~\ref{tab:claims} lists the core claims. C1--C3 and C7 are bounded-proven in TLA+. C1--C4 and C6 are symbolically proven in Tamarin. C5 is implementation-tested and relies on SHA-256 collision resistance.
+
+\begin{table}
+\caption{Security claims and proof status}
+\label{tab:claims}
 \centering
-\begin{tabular}{lll}
+\begin{tabular}{p{0.08\textwidth}p{0.37\textwidth}p{0.22\textwidth}p{0.20\textwidth}}
 \toprule
-Threat & Mechanism & Evidence\\
+ID & Claim & Formal status & Residual assumption \\
 \midrule
-Payload tampering & Ed25519 verify & Unit and adversary tests\\
-Sender tampering & Signed sender field & Attack 5\\
-Wrong key (kid swap) & DID-resolved verify & Attack 6\\
-Unsigned message & Signature required & Unit tests\\
-Unauthorized action & Capability action check & Attack 7\\
-Wrong subject & Capability subject check & Unit tests\\
-Expired grant & UTC expiration check & Attack 3\\
-Over budget & Call counter + payload size & Attack 10\\
-DAG mutation & CID recomputation & Unit tests\\
-Missing parent & Parent lookup & Attack 9\\
-Replay & (sender, session, msgid) cache & Attack 2\\
-Revocation & Signed registry, on-load verify & Attack 4\\
-Sandbox escape & wasmtime, no WASI, fuel & Attack 11\\
-Malformed frame & Strict envelope validation & Attack 8\\
-Prompt injection & Outside protocol-layer evaluation & Scoped limitation\\
+C1 & Accepted actions require valid authorization & TLC + Tamarin & atomic local checks \\
+C2 & A message id is not accepted twice in a session & TLC + Tamarin & replay cache abstraction \\
+C3 & Known revoked capabilities are rejected & TLC + Tamarin & local registry knowledge \\
+C4 & Accepted sender identity is signature-bound & Tamarin + tests & Ed25519 security \\
+C5 & Audit-DAG mutation is detected & tests & SHA-256 collision resistance \\
+C6 & Tool execution follows authorization & Tamarin + tests & call-site routing \\
+C7 & State-machine invariants hold in bounded model & TLC & finite constants \\
 \bottomrule
 \end{tabular}
-\par\medskip
-\footnotesize{The attack number references Table~\ref{tab:adversary} in Section~\ref{sec:hardening}.}
 \end{table}
 
-The evaluation distinguishes protocol evidence from broad security claims. Signatures establish message integrity under the resolved public key, but do not by themselves establish institutional trust. Capability grants authorize specific actions and are checked for replay and revocation, but distributed revocation propagation and multi-process budget reservation are outside the present implementation. The calculator tool is bounded because it performs only a structured addition operation in WASM; this does not establish safety for arbitrary untrusted code.
+\subsection{TLA+ Model}
+
+The TLA+ model represents capabilities, subjects, issuers, actions, message ids, key ids, revocation, replay state, budgets, and accepted history \cite{lamport2002tla,tlatools}. TLC checks 9 invariants over 11,601 distinct states at depth 7:
+\begin{itemize}
+  \item type correctness;
+  \item no unauthorized consumption;
+  \item no wrong-subject consumption;
+  \item no consumption after expiration;
+  \item no consumption after revocation;
+  \item no over-budget consumption;
+  \item no replayed consumption;
+  \item no wrong-issuer consumption;
+  \item no consumption with a revoked key.
+\end{itemize}
+This is a bounded safety result, not a liveness proof and not an implementation-refinement proof.
+
+\subsection{Tamarin Model}
+
+The Tamarin model abstracts public-key signatures, grants, revocations, signed actions, verifier acceptance, and tool execution \cite{meier2013tamarin}. The Dolev--Yao adversary observes and replays wire messages but does not learn private keys of uncompromised principals. Tamarin Prover 1.7.1 verifies five lemmas:
+\begin{itemize}
+  \item \texttt{authentication}: an accepted action attributed to a subject was previously sent by that subject;
+  \item \texttt{authorization\_required}: every accepted action has an issuing grant;
+  \item \texttt{replay\_resistance}: the same accepted action is not accepted twice;
+  \item \texttt{revocation\_safety}: accepted actions precede known revocation of the capability;
+  \item \texttt{tool\_safety}: every tool run has a prior accepted action.
+\end{itemize}
+
+The replay lemma is intentionally documented as load-bearing. Without a replay-cache abstraction, a Dolev--Yao adversary can replay signed wire bytes. The model therefore includes an \texttt{accepted\_once\_per\_message} restriction representing the runtime \texttt{ReplayCache.check\_and\_record} invariant. The implementation tests exercise that cache directly.
 
 \section{Evaluation}
-\subsection{Experimental Setup}
-All measurements were generated by the included scripts under \texttt{benchmarks/}. The environment metadata is stored in \texttt{benchmarks/results/environment.json}. The current raw results were generated on Windows with Python 3.14.2. The benchmarks are local microbenchmarks and should not be interpreted as distributed network performance.
 
-\subsection{Payload Size}
-Table~\ref{tab:payload} and Figure~\ref{fig:payload} compare a plain JSON action, unsigned SIFR action, signed SIFR action, TensorFrame JSON-list encoding, and TensorFrame base64 binary encoding. The signed SIFR frame is larger than a plain JSON action because it carries versioning, identifiers, parents, sender/receiver identifiers, timestamp, capability id, and signature. For the tested 384-dimensional float32 vector, base64 binary encoding is substantially smaller than a JSON float list.
+\subsection{Test and Adversary Evidence}
 
-\begin{table}[t]
-\caption{Payload Size Benchmark}
-\label{tab:payload}
+The implementation test suite contains 190 tests. It includes unit tests for messages, signatures, capabilities, audit DAGs, TensorFrame encoding, transports, DID resolution, credentials, key management, revocation, replay, QUIC, WASM, secure-flow demos, formal artifact freshness, and proof obligations. The adversary suite includes 30 controlled attacks covering tampering, replay, expiration, revocation, sender and key swaps, unauthorized tools, malformed frames, missing parents, payload budgets, wrong subjects, wrong issuers, revoked keys, and tool-bypass attempts. All tested attacks are rejected before unauthorized tool execution.
+
+\begin{table}
+\caption{Representative adversarial checks}
+\label{tab:adversary}
 \centering
-\begin{tabular}{lrr}
+\begin{tabular}{lll}
 \toprule
-Case & Bytes & Ratio vs. plain\\
+Class & Expected rejection & Evidence \\
 \midrule
-Plain JSON action & 53 & 1.00\\
-SIFR unsigned action & 257 & 4.85\\
-SIFR signed action & 411 & 7.75\\
-Tensor JSON list & 7642 & 144.19\\
-Tensor base64 binary & 2214 & 41.77\\
+Tampered payload & signature failure & crypto tests, adversary tests \\
+Replay & replay error & replay tests \\
+Expired grant & unauthorized action & capability tests \\
+Revoked grant & revoked capability & revocation tests \\
+Wrong key id & signature binding error & DID tests \\
+Unauthorized tool & unauthorized action & adversary tests \\
+Missing DAG parent & audit error & audit tests \\
+Direct tool bypass & no invocation evidence & proof-obligation tests \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
+\subsection{Performance Measurements}
+
+The benchmarks are local microbenchmarks intended to characterize overhead, not Internet-scale service performance. Table~\ref{tab:measurements} summarizes selected results. Figure~\ref{fig:payload} shows payload-size overhead, and Figure~\ref{fig:quic} shows QUIC behavior under loopback and Docker/NetEm impairment.
+
+\begin{table}
+\caption{Selected measurements from the artifact}
+\label{tab:measurements}
 \centering
-\includegraphics[width=\linewidth]{figures/benchmark_payload.png}
-\caption{Payload-size benchmark generated from raw CSV results.}
+\begin{tabular}{ll}
+\toprule
+Measurement & Result \\
+\midrule
+Plain JSON action size & 53 bytes \\
+Signed SIFR action size & 411 bytes \\
+Ed25519 signing & 0.0314 ms \\
+Ed25519 verification & 0.0615 ms \\
+Sign + verify + DAG append & 0.1104 ms \\
+QUIC loopback mean RTT & 0.42 ms \\
+Docker bridge mean RTT & 0.60 ms \\
+Docker + 20 ms NetEm delay & 22.03 ms mean RTT \\
+Docker + 5\% loss & 2.48 ms mean, 31.87 ms p95 \\
+WASM calculator warm execution & 40.6 microseconds \\
+Tamarin lemmas & 5/5 verified \\
+TLC state space & 11,601 states, 9 invariants \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.82\textwidth]{figures/benchmark_payload.png}
+\caption{Payload-size comparison for plain JSON, SIFR frames, and TensorFrame encodings.}
 \label{fig:payload}
 \end{figure}
 
-\subsection{Signature Overhead}
-The Ed25519 microbenchmark creates, signs, and verifies 100, 1000, and 10000 messages. At 10000 messages, average signing time was 0.0314 ms per message and average verification time was 0.0615 ms per message. Figure~\ref{fig:signature} plots average cost across message counts. These measurements support H4 only for local CPU overhead, not for networked deployment.
-
-\begin{figure}[t]
+\begin{figure}
 \centering
-\includegraphics[width=\linewidth]{figures/benchmark_signature_overhead.png}
-\caption{Ed25519 signing and verification overhead.}
-\label{fig:signature}
+\includegraphics[width=0.82\textwidth]{figures/benchmark_quic_network.png}
+\caption{QUIC round-trip behavior under loopback, Docker bridge, delay, and packet loss.}
+\label{fig:quic}
 \end{figure}
-
-\subsection{Latency}
-The latency benchmark compares plain local dict passing, SIFR message creation, SIFR signing plus verification, SIFR signing plus verification plus DAG append, and JSON serialization/deserialization as a simulated HTTP JSON baseline. Table~\ref{tab:latency} and Figure~\ref{fig:latency} report local latency only.
-
-\begin{table}[t]
-\caption{Local Latency Microbenchmark}
-\label{tab:latency}
-\centering
-\begin{tabular}{lrr}
-\toprule
-Case & Mean ms & p95 ms\\
-\midrule
-Plain local dict & 0.00017 & 0.00040\\
-SIFR create only & 0.00779 & 0.01810\\
-SIFR sign+verify & 0.09833 & 0.12360\\
-SIFR sign+verify+DAG & 0.11040 & 0.15260\\
-HTTP JSON serialization & 0.00758 & 0.01360\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/benchmark_latency.png}
-\caption{Local latency microbenchmark.}
-\label{fig:latency}
-\end{figure}
-
-\subsection{Capability Enforcement}
-The capability benchmark runs six cases: authorized action, unauthorized action, expired capability, tampered capability, over-budget capability, and wrong subject. The authorized action succeeds. The remaining five cases are rejected with the expected error category. This supports H2 for the implemented two-agent calculator workflow.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/benchmark_capability.png}
-\caption{Capability-enforcement benchmark. The authorized case succeeds; negative cases are expected rejections.}
-\label{fig:capability}
-\end{figure}
-
-\section{Security Evidence}
-\label{sec:hardening}
-Section~\ref{sec:hardening} presents the evaluated security mechanisms. Each subsection cites the implementation file, the test file with positive and negative cases, and the adversarial assertion that prevents an in-name-only implementation.
-
-\subsection{Encrypted Key Management}
-SIFR stores private keys at rest in a passphrase-encrypted JSON file (\texttt{sifr/key\_management.py}). The file format binds an Argon2id-derived~\cite{biryukov2016argon2} AES-256-GCM key per keystore. The kid is bound as additional authenticated data on each entry, so swapping ciphertexts between two entries fails on decryption. Tests in \texttt{tests/test\_key\_management.py} include the assertions \emph{file-does-not-contain-raw-private-key} and \emph{kid-AAD-binding-prevents-swap}.
-
-\subsection{DID Resolution}
-SIFR implements two DID methods behind a common \texttt{DidResolver} ABC (\texttt{sifr/did/}). \texttt{did:web}~\cite{didweb2024spec} fetches DID documents over HTTPS per the W3C method specification, with percent-encoded port handling. \texttt{did:sifr} reads documents from a local directory and is intended for tests and air-gapped scenarios. Both are exercised by an in-process loopback HTTP fixture (\texttt{tests/fixtures/did\_web\_server.py}) that proves did:web tests use real HTTP traffic. Negative tests check kid-not-in-document, controller-mismatch, path-traversal, and id-mismatch reject paths.
-
-\subsection{VC-Inspired Capability Credentials and Revocation}
-\texttt{sifr/credentials.py} implements signed credentials structured like W3C Verifiable Credentials (\texttt{@context}, \texttt{type}, \texttt{issuer}, \texttt{issuanceDate}, \texttt{expirationDate}, \texttt{credentialSubject}, \texttt{proof}). The proof is an \texttt{Ed25519Signature2020} over canonical JSON without the proof field. Negative tests demonstrate that mutating \texttt{credentialSubject.id}, \texttt{expirationDate}, the embedded \texttt{capability.actions}, or \texttt{proof.proofValue} after signing all fail verification, and that the verification-method DID must match the issuer DID. The implementation is VC-inspired rather than a full JSON-LD/URDNA2015 Verifiable Credentials conformance implementation.
-
-\texttt{sifr/revocation.py} implements a registry of signed \texttt{CapabilityRevocation} SIFR messages with optional JSONL persistence. Entries are re-verified on load, so tampering with a stored record fails reload. \texttt{sifr/capabilities.py:authorize\_action} consults the registry before authorization; a revoked grant raises \texttt{UnauthorizedAction("REVOKED\_CAPABILITY")} (attack 4 in Table~\ref{tab:adversary}).
-
-\subsection{Replay Protection}
-\texttt{sifr/replay.py} maintains a per-process cache keyed on \texttt{(sender\_id, session\_id, message\_id)} with a sliding timestamp window (default 5 minutes). A negative test demonstrates that re-signing the same message with a different signature value still fails replay because the cache key does not include the signature. Optional SQLite persistence retains entries across restarts. Window-edge cases (stale, future, exact boundary) are tested.
-
-\subsection{WASM Tool Isolation}
-\texttt{sifr/wasm\_runner.py} uses \texttt{wasmtime}~\cite{wasmtime}-based execution of \texttt{wasm/calculator/calculator.wat}. The runner does not link any WASI imports; modules importing \texttt{wasi\_snapshot\_preview1} fail to instantiate. Each call uses a fresh \texttt{Store} with a fixed fuel budget (default 1{,}000{,}000), bounding compute and trapping infinite loops. The committed module is WAT (text), not opaque \texttt{.wasm}, so the 13-line source is inspectable.
-
-Adversarial assertions in \texttt{tests/test\_wasm\_runner.py}: (i) a parity test of 8 input pairs proves Python and WASM produce bit-identical results; (ii) every successful call advances \texttt{last\_invocation\_evidence["fuel\_consumed"]} (a Python fall-through would never advance it); (iii) the \texttt{fs\_attempt.wat} fixture, which tries to import \texttt{path\_open}, fails to instantiate; (iv) the \texttt{looping.wat} fixture traps on fuel.
-
-\subsection{QUIC Transport}
-\texttt{sifr/transport/quic.py} provides a single-stream length-prefixed canonical-JSON transport over \texttt{aioquic}~\cite{aioquic} 1.3 with ALPN \texttt{sifr/0.2}. Self-signed cert generation for tests and demos is implemented in \texttt{sifr/transport/\_certs.py}; private keys are not committed. The trap-acceptance test asserts \texttt{isinstance(transport.quic\_connection, aioquic.quic.connection.QuicConnection)} AND \texttt{negotiated\_alpn == "sifr/0.2"} AND that a real \texttt{original\_destination\_connection\_id} was negotiated --- ruling out a TCP look-alike. All QUIC measurements and tests in v0.2 use localhost loopback.
-
-Loopback RTT for sign+verify+DAG over LocalTransport is 0.0868 ms; over QUIC the same workload takes 0.3831 ms (\texttt{benchmarks/results/v0.2/quic\_latency.csv}); the difference reflects QUIC handshake amortization, framing, and asyncio scheduling overhead.
-
-\subsection{Network Adversary Evaluation}
-\texttt{tests/test\_network\_adversary.py} encodes 11 controlled attacks. Each test asserts (a) the exact rejection error class and (b) that \texttt{WasmToolRunner.last\_invocation\_evidence} is unchanged after the rejection, proving the attack never reached the tool. Reject latencies (200 trials each, mean) are in Table~\ref{tab:adversary}. The replay attack is slow because it includes one legitimate authorize+WASM call before the replay attempt.
-
-\begin{table}[t]
-\caption{Network Adversary Rejection Latencies}
-\label{tab:adversary}
-\centering
-\begin{tabular}{rlr}
-\toprule
-\# & Attack and expected error & Mean reject ($\mu$s)\\
-\midrule
-1 & Tampered body $\to$ SignatureError & 87.6\\
-2 & Replay $\to$ ReplayError & 1124.2\\
-3 & Expired grant $\to$ UnauthorizedAction(EXPIRED) & 361.4\\
-4 & Revoked grant $\to$ UnauthorizedAction(REVOKED) & 208.1\\
-5 & Swap sender\_id $\to$ SignatureError & 11.5\\
-6 & Swap kid $\to$ SignatureError & 12.1\\
-7 & Unauthorized action $\to$ UnauthorizedAction(UNAUTH.) & 217.4\\
-8 & Malformed frame $\to$ MessageValidationError & 2.8\\
-9 & Drop parent DAG node $\to$ AuditDAGError & 98.7\\
-10 & Oversized payload $\to$ UnauthorizedAction(BUDGET) & 273.9\\
-11 & WASM execution without grant $\to$ CapabilityError & 1.0\\
-\bottomrule
-\end{tabular}
-\par\medskip
-\footnotesize{Source: \texttt{benchmarks/results/v0.2/adversary\_rejection.json}.}
-\end{table}
-
-Figure~\ref{fig:adversary} visualizes the same data on a log-scale axis, color-coded by rejecting error class. The slowest path (replay, 1124.2 us) subsumes one full authorize+execute round; the fastest (WASM-without-grant, 1.0 us) returns before any transport, signature, or runtime work happens.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/benchmark_adversary.png}
-\caption{Network adversary rejection latencies, mean of 200 trials, log scale. Color encodes the raised error class.}
-\label{fig:adversary}
-\end{figure}
-
-This is a controlled adversary evaluation under the stated trust assumptions. It is not a fuzz test, a penetration test, or a survey of all possible attacks.
-
-\subsection{TLA+ Formal Model}
-\texttt{formal/sifr\_capability.tla} models the capability authorization state machine in TLA+~\cite{lamport2002tla}, checked with TLC~\cite{tlatools}: states \texttt{unissued} $\to$ \texttt{active} $\to$ \{\texttt{expired}, \texttt{revoked}\}; actions \texttt{Issue}, \texttt{Expire}, \texttt{Revoke}, \texttt{Consume}; replay set \texttt{(subject, message\_id)}; bounded budget. Seven invariants (Table~\ref{tab:invariants}) jointly express safety: no over-budget, wrong-subject, unauthorized-action, replayed, post-revocation, or post-expiration consume.
-
-\begin{table}[t]
-\caption{Formal Invariants and Their Implementation Witnesses}
-\label{tab:invariants}
-\centering
-\small
-\begin{tabular}{p{0.40\linewidth}p{0.50\linewidth}}
-\toprule
-TLA+ Invariant & Code witness (raises on violation)\\
-\midrule
-\texttt{NoOverBudgetConsume} & \texttt{authorize\_action} $\to$ \texttt{CALL\_BUDGET\_EXCEEDED}\\
-\texttt{NoWrongSubjectConsume} & \texttt{authorize\_action} $\to$ \texttt{WRONG\_SUBJECT}\\
-\texttt{NoUnauthorizedActionConsume} & \texttt{authorize\_action} $\to$ \texttt{UNAUTHORIZED\_ACTION}\\
-\texttt{NoReplayedConsume} & \texttt{ReplayCache.check\_and\_record} $\to$ \texttt{ReplayError}\\
-\texttt{NoConsumeAfterRevoke} & \texttt{authorize\_action} $\to$ \texttt{REVOKED\_CAPABILITY}\\
-\texttt{NoConsumeAfterExpire} & \texttt{authorize\_action} $\to$ \texttt{EXPIRED\_CAPABILITY}\\
-\texttt{TypeInvariant} & Static guarantee of the data model\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-TLC v2026.05.04 with 16 workers explored \textbf{276{,}205 distinct states} at depth 9 in 7 seconds against the bounded constants in \texttt{formal/MC.cfg} (\texttt{Caps=\{c1,c2\}}, \texttt{Subs=\{alice,bob\}}, \texttt{Acts=\{add,multiply\}}, \texttt{Msgs=\{m1,m2\}}, \texttt{MaxCalls=2}). TLC reports \emph{Model checking completed. No error has been found.} Output is committed at \texttt{formal/output/tlc\_output.txt}; \texttt{tests/test\_formal\_artifacts.py} parses it and skips with explicit instructions when no Java/TLC is available locally.
-
-The TLA+ model is a bounded safety model rather than a cryptographic proof, liveness proof, or refinement proof. It captures the specification of authorization; the adversary tests in \texttt{tests/test\_network\_adversary.py} connect the modeled invariants to implementation-level rejection behavior.
-
-\subsection{End-to-End Vertical Slice}
-\texttt{examples/demo\_secure\_quic\_wasm\_did\_flow.py} runs the full SIFR flow over QUIC: two agents resolve each other's DID documents, establish a TLS-secured QUIC connection, exchange signed Hellos, the issuer (Bob) issues a VC-inspired credential, the subject (Alice) verifies it, Alice signs an Action, Bob runs replay+revocation+authorization checks, Bob runs the WASM calculator, Bob signs the Observation, both build an audit DAG, and the DAG verifies. The demo exits 0 with the expected output:
-
-\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
-=== SIFR Secure Flow Demo ===
-DID resolution: OK
-QUIC session: OK
-Hello signature: OK
-Capability credential: OK
-Replay check: OK
-Revocation check: OK
-Action authorized: OK
-WASM calculator executed: OK
-Observation verified: OK
-Audit DAG integrity: OK
-Formal model: PRESENT
-Result: 5
-Demo completed successfully.
-\end{lstlisting}
-
-The companion test \texttt{tests/test\_secure\_flow.py} subprocess-launches the demo and asserts each required \texttt{OK} line is present and the exit code is 0.
-
-\section{Claims and Evidence Map (v0.3)}
-\label{sec:claims}
-Table~\ref{tab:claims} maps each v0.3 claim to its implementation files, positive and negative tests, benchmark or formal artifact, and paper location. A claim is shown as \emph{proven} only if every applicable evidence row is present and reproducible from a clean checkout via \texttt{scripts/reproduce\_all.sh}. Honest \emph{partial} rows describe scope boundaries: VC-inspired credentials (no W3C VC compliance), DID resolution restricted to \texttt{Ed25519VerificationKey2020}/\texttt{2018} with \texttt{publicKeyBase64}, and WASM isolation tested against the calculator and two adversarial fixtures. The v0.3 release additionally evaluates QUIC over a single-host Docker bridge with NetEm packet impairment in addition to the original loopback baseline.
-
-\begin{table*}[t]
-\caption{SIFR v0.3 claim-to-evidence map. \textit{partial} rows are explicit scope boundaries documented in \texttt{docs/proof\_obligations\_v0\_3.md}.}
-\label{tab:claims}
-\centering
-\small
-\begin{tabular}{p{0.045\linewidth}p{0.21\linewidth}p{0.18\linewidth}p{0.10\linewidth}p{0.16\linewidth}p{0.10\linewidth}p{0.07\linewidth}}
-\toprule
-ID & Claim & Code & Tests & Bench/Artifact & Limitation & Status\\
-\midrule
-P1 & Signed canonical frames & \texttt{sifr/canonical.py}, \texttt{sifr/crypto.py} & \texttt{test\_crypto.py}, A01-A04, A08 & \texttt{signature\_overhead.csv} & none & proven\\
-P2 & Capability authorization & \texttt{sifr/capabilities.py} & \texttt{test\_capabilities.py}, A07-A09/A12/A18/A22 & TLC I1-I5, I8 & per-process budget & proven\\
-P3 & VC-inspired credentials & \texttt{sifr/credentials.py} & \texttt{test\_credentials.py}, A05-A07, A10-A11 & \texttt{credential\_verification.csv} & not W3C VC & partial\\
-P4 & Capability revocation & \texttt{sifr/revocation.py} & \texttt{test\_revocation.py}, A12 & TLC I4 & per-process & proven\\
-P5 & Replay protection & \texttt{sifr/replay.py} & \texttt{test\_replay.py}, A13-A17 & TLC I6 & per-process cache & proven\\
-P6 & DID resolution + key binding & \texttt{sifr/did/}, \texttt{crypto.verify\_message} & \texttt{test\_did\_resolution.py}, A08-A09 & \texttt{did\_resolution.csv} & no multibase / JWK & partial\\
-P7 & QUIC transport (loopback + emulated network) & \texttt{sifr/transport/quic.py}, \texttt{docker/} & \texttt{test\_quic\_transport.py}, A25-A27 & \texttt{quic\_latency.csv}, \texttt{quic\_network\_latency.csv} & single-host emulated & proven\\
-P8 & WASM tool isolation & \texttt{sifr/wasm\_runner.py} & \texttt{test\_wasm\_runner.py}, A23-A24 & \texttt{wasm\_overhead.csv} & calculator + 2 fixtures only & partial\\
-P9 & Audit DAG integrity & \texttt{sifr/audit\_dag.py} & \texttt{test\_audit\_dag.py}, A20-A21 & impl-only I10 & no formal model & proven\\
-P10 & Adversary rejection (30 cases) & \texttt{tests/test\_v0\_3\_adversary.py} & 30/30 cases A01-A30 & \texttt{adversary\_rejection.json} & not penetration-testing & proven\\
-P11 & Formal authorization model & \texttt{formal/sifr\_capability.tla} & \texttt{test\_formal\_artifacts.py} & TLC 11{,}601 states / 9 inv. & no liveness, no crypto & proven\\
-P12 & End-to-end secure flow & \texttt{demo\_secure\_quic\_wasm\_did\_flow.py} & \texttt{test\_secure\_flow.py} & demo stdout & single-process & proven\\
-P13 & Reproducible bench pipeline & \texttt{scripts/run\_all\_benchmarks.sh}, \texttt{benchmarks/bench\_io.py} & step 8 of \texttt{reproduce\_all.sh} & \texttt{v0.3/manifest.json} & none & proven\\
-P14 & Reproducible figure pipeline & \texttt{scripts/generate\_all\_figures.py} & step 8 of \texttt{reproduce\_all.sh} & \texttt{figure\_manifest.json} & none & proven\\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\subsection{v0.3 strict adversary evaluation}
-\texttt{tests/test\_v0\_3\_adversary.py} extends the v0.2 11-case suite to thirty enumerated controlled cases. The set covers tampering at the payload, sender, receiver, and capability-action levels (A01-A04); credential-layer attacks (A05-A07, A10, A11); key-layer attacks including the kid-DID/sender-id binding closure added in v0.3 (A08, A09); revocation and replay (A12-A17); framing and authorization (A18-A22); WASM-host-import and fuel attacks (A23, A24); QUIC-routed replay, malformed-frame, and revocation cases (A25-A27); and TensorFrame shape-bomb / dtype / payload-length attacks (A28-A30). Each case asserts the exact rejection error class and that \texttt{WasmToolRunner.last\_invocation\_evidence} is unchanged after the rejection. Per-case mean reject latency is reported in \texttt{benchmarks/results/v0.3/adversary\_rejection.json} and visualized in Figure~\ref{fig:adversary_v0_3}.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/benchmark_v0_3_adversary.png}
-\caption{SIFR v0.3 strict adversary evaluation: 30 controlled cases, time-to-reject on log scale, color-coded by rejecting error class. Cases marked ``pytest only'' (A15, A25-A27) are validated by \texttt{pytest} fixtures whose timing is dominated by setup; their pass/fail is the evidence, not their latency.}
-\label{fig:adversary_v0_3}
-\end{figure}
-
-\subsection{v0.3 QUIC beyond-loopback evaluation}
-v0.3 closes the loopback-only gap by adding a Docker-Compose + NetEm pipeline (\texttt{docker/Dockerfile.quic\_node}, \texttt{docker/compose\_quic\_netem.yml}, \texttt{scripts/run\_quic\_network\_bench.sh}) that runs the same sign+verify+DAG round-trip workload across two containers on a Docker bridge network, with optional \texttt{tc qdisc} NetEm impairment. Containers receive \texttt{cap\_add: NET\_ADMIN} so the entrypoint can install the qdisc before the QUIC handshake.
-
-Five configurations are measured (Table~\ref{tab:quic_net} and Figure~\ref{fig:quic_net}): loopback baseline, container baseline (no impairment), \texttt{netem delay 20 ms}, \texttt{netem loss 1\%}, and \texttt{netem loss 5\%}. The 20 ms delay shows up as $\sim$22 ms RTT (delay applied per-packet, baseline overhead added). 1\% packet loss adds $\sim$50\% mean RTT; 5\% loss spikes the p95 to 31.87 ms as QUIC retransmissions dominate the worst-case timing. We label this an \emph{emulated network evaluation}; it is not a multi-host or Internet-scale test. See \texttt{docs/quic\_network\_evaluation.md} for full methodology and explicit non-claims.
-
-\begin{table}[t]
-\caption{SIFR v0.3 QUIC RTT across loopback and Docker + NetEm impairments.}
-\label{tab:quic_net}
-\centering
-\small
-\begin{tabular}{lrrr}
-\toprule
-Configuration & n & mean RTT (ms) & p95 RTT (ms)\\
-\midrule
-loopback baseline       & 500 & 0.42 & ---\\
-container baseline      & 100 & 0.60 & 1.00\\
-container + 20 ms delay & 100 & 22.03 & 22.77\\
-container + 1\% loss    & 100 & 0.98 & 1.19\\
-container + 5\% loss    &  60 & 2.48 & 31.87\\
-\bottomrule
-\end{tabular}
-\par\medskip
-\footnotesize{Source: \texttt{benchmarks/results/v0.3/quic\_network\_latency.csv}.}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/benchmark_quic_network.png}
-\caption{QUIC RTT (mean and p95) across five configurations: loopback, container baseline, +20\,ms delay, +1\% loss, +5\% loss. NetEm injects per-packet impairment via \texttt{tc qdisc} inside each container. Hatched bars are p95.}
-\label{fig:quic_net}
-\end{figure}
-
-\subsection{v0.3 formal model strengthening}
-The v0.2 model checked seven invariants on a state machine with one issuer and one kid. The v0.3 model adds explicit \texttt{Issuers} and \texttt{Kids} to the state and two new invariants:
-\begin{itemize}
-\item \texttt{NoConsumeWithWrongIssuer} (I8): every consume references the issuer the cap was issued under.
-\item \texttt{NoConsumeWithRevokedKey} (I9): every consume's kid is not in the \texttt{revokedKids} set.
-\end{itemize}
-The bounded model uses \texttt{Caps=\{c1\}}, \texttt{Subs=\{alice,bob\}}, \texttt{Issuers=\{alice,bob\}}, \texttt{Acts=\{add,multiply\}}, \texttt{Msgs=\{m1,m2\}}, \texttt{Kids=\{k1,k2\}}, \texttt{MaxCalls=2}. TLC explores 11{,}601 distinct states at depth 7 and reports no error for all 9 invariants. Two further invariants (I7 \emph{TamperedCredentialNeverAllowed} and I10 \emph{AuditTamperDetected}) are byte-level / DAG-level properties that the state machine deliberately abstracts away; they are validated only by implementation tests (\texttt{tests/test\_credentials.py}, \texttt{tests/test\_audit\_dag.py}, and adversary cases A05-A07 / A21).
-
-\section{Formal Security Analysis (v0.4)}
-\label{sec:formal_analysis}
-
-We formalize seven security claims (C1-C7) over the SIFR core protocol and classify each by its strongest available evidence: \emph{bounded-proven} (TLC over a finite domain), \emph{symbolic-modeled} (Tamarin lemma encoded but not run in the reference environment), \emph{tested} (positive and adversarial implementation tests), \emph{assumed} (standard cryptographic or systems assumption), or \emph{future}. The full claim sheet is in \texttt{docs/security\_claims\_v0\_4.md}; the matrix mapping each claim to model, code, tests, and paper section is in \texttt{docs/proof\_obligations\_v0\_4.md}.
-
-\begin{table}[t]
-\caption{SIFR v0.4 claim status. \emph{bounded-proven} = TLC for the domain in \texttt{formal/MC.cfg}. \emph{symbolic-modeled} = Tamarin lemma encoded in \texttt{formal/tamarin/sifr\_core.spthy} but not run; promotion to \emph{symbolic-proven} requires a Tamarin install. \emph{tested} = positive + adversarial tests in \texttt{tests/test\_v0\_4\_proof\_obligations.py} and the v0.3 strict suite.}
-\label{tab:formal_claims}
-\centering
-\small
-\begin{tabular}{p{0.06\linewidth}p{0.34\linewidth}p{0.50\linewidth}}
-\toprule
-ID & Claim (one line) & Status\\
-\midrule
-C1 & Authorization safety (signature, replay, revocation, expiration, budget, action, subject, issuer all checked before consume) & bounded-proven (TLC) + symbolic-proven (Tamarin) + tested\\
-C2 & Replay safety: \texttt{(sender, session, msgid)} not accepted twice & bounded-proven (TLC) + symbolic-proven (Tamarin, with documented restriction) + tested\\
-C3 & Revocation safety: revoked cap not accepted & bounded-proven (TLC) + symbolic-proven (Tamarin) + tested\\
-C4 & Signature binding: kid's DID prefix matches \texttt{sender\_id} & symbolic-proven (Tamarin) + tested (Ed25519 EUF-CMA assumed)\\
-C5 & Audit DAG tamper evidence: stored byte mutation breaks CID & tested (SHA-256 collision resistance assumed)\\
-C6 & No tool before authorization: \texttt{authorize\_action} precedes runner & symbolic-proven (Tamarin) + tested\\
-C7 & Bounded state-machine safety: 9 invariants over 11{,}601 states & bounded-proven (TLC)\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Adversary models and assumptions}
-We separate three adversary models: (i) the \emph{state-machine adversary} explored by TLC, which can fire any sequence of \texttt{Issue}, \texttt{Expire}, \texttt{Revoke}, \texttt{RevokeKey}, \texttt{Consume} transitions allowed by the model; (ii) the \emph{Dolev-Yao symbolic adversary} encoded in \texttt{formal/tamarin/sifr\_core.spthy}, which observes wire traffic, can synthesise messages from public terms, and may claim any unbound principal identity, but cannot recover private keys held by uncompromised principals; and (iii) the \emph{controlled-implementation adversary} in \texttt{tests/test\_v0\_3\_adversary.py} and \texttt{tests/test\_v0\_4\_proof\_obligations.py}, which mounts each enumerated attack against the real Python implementation.
-
-We assume Ed25519 is EUF-CMA secure, Argon2id is preimage- and collision-resistant for the chosen parameters, AES-256-GCM is IND-CCA2 secure, SHA-256 is collision-resistant, the verifier's process clock is monotonic to within the configured replay window, and \texttt{authorize\_action} is invoked atomically with respect to its capability store, revocation registry, and replay cache.
-
-\subsection{What is proven and what is not}
-\textbf{Bounded-proven:} C1, C2, C3, C7 by TLC over the bounded domain in \texttt{formal/MC.cfg} (11{,}601 distinct states, 9 invariants, no error). \textbf{Symbolic-proven (v0.4.0):} C1, C2, C3, C4, C6 by Tamarin Prover 1.7.1 (`aeads/tamarin:latest` Docker image) against \texttt{formal/tamarin/sifr\_core.spthy}: \texttt{authentication} verified in 6 steps, \texttt{authorization\_required} in 5 steps, \texttt{replay\_resistance} in 2 steps (with the \texttt{accepted\_once\_per\_message} restriction modelling the SIFR \texttt{ReplayCache} as an external invariant), \texttt{revocation\_safety} in 2 steps, \texttt{tool\_safety} in 3 steps; all five lemmas with zero wellformedness warnings. The captured run is in \texttt{formal/output/tamarin\_output.txt}. \textbf{Tested:} all seven claims have positive and adversarial implementation tests; the v0.4 proof-obligation suite adds 20 tests with at least one positive and one negative case per claim. \textbf{Assumed:} cryptographic strength of the underlying primitives, single-process atomicity of the verifier, monotone bounded-skew clocks. \textbf{Future:} liveness; refinement of \texttt{formal/sifr\_capability.tla} to the Python implementation; lifting bounded TLC results to unbounded constants; a real-network or multi-host network adversary; full W3C VC compliance; arbitrary-untrusted-code WASM safety.
-
-\subsection{What this section does NOT claim}
-We do not claim full cryptographic security; we do not claim production-deployment readiness; we do not claim that the running code is a refinement of the TLA+ specification (it is empirically tested, not formally refined); we do not claim that QUIC's security properties extend beyond the standard TLS/QUIC assumptions; we do not claim arbitrary-untrusted-code WASM isolation; we do not claim symbolic-proven status for any lemma in \texttt{formal/tamarin/sifr\_core.spthy} until the reproduction script reports a successful Tamarin run.
 
 \section{Discussion}
-The implementation demonstrates that a compact vertical slice can bind communication semantics, signatures, capabilities, tool execution, and audit lineage. The central value of SIFR is that the protocol claim is executable and testable: the demo can be run, frames can be tampered with, grants can be expired, budgets can be exceeded, DAG parents can be removed, figures can be regenerated, and the resulting behavior can be inspected.
 
-Concrete numbers support the implementation claim: the demo exchanges seven SIFR messages over a QUIC stream with sub-millisecond per-message overhead on loopback (0.42\,ms mean RTT) and graceful degradation under NetEm impairment (22.0\,ms with 20\,ms injected delay, 31.9\,ms p95 with 5\% packet loss); the WASM calculator runs in $\sim$40.6\,$\mu$s warm and produces an audit fuel-consumption counter that distinguishes WASM execution from a Python fall-through; revocation lookups are below 0.5\,$\mu$s in the measured cases; the v0.2 baseline 11-attack adversary suite shows reject latencies bounded by 1124\,$\mu$s; and the v0.3 strict 30-case suite extends coverage to credential-layer, key-layer, QUIC-routed, and TensorFrame attacks with the slowest reject path (WASM filesystem-import) at 4584\,$\mu$s. Figure~\ref{fig:capability_growth} summarizes the test and layer evidence.
+SIFR's main result is not that its prototype is faster than existing protocols. It is that agent-service communication can be made structurally verifiable without a large implementation. Typed frames clarify intent. Signatures bind content and sender identity. Capability grants narrow authority. Replay and revocation checks make old messages and withdrawn grants fail. Audit DAGs give a concrete lineage object. Tool execution becomes a downstream consequence of verified authorization.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/benchmark_v0_1_vs_v0_2.png}
-\caption{Growth of evaluated protocol evidence. Left: test-suite size. Right: measured layer-level latencies for DID resolution, QUIC transport, credential verification, replay checking, revocation lookup, and WASM execution.}
-\label{fig:capability_growth}
-\end{figure}
+For ICWS-style Web-service research, the most important implication is that agentic services need protocol-level authority and evidence. A future agent-service marketplace cannot rely only on broad API keys and natural language transcripts. Service providers need to know which agent requested which action under which grant, whether the grant was fresh and unrevoked, whether the same message had already been accepted, and which execution trace resulted.
 
-The results also show costs and trade-offs. Signed frames are larger than plain JSON actions. Ed25519 verification is slower than signing in the measured environment. DAG append adds additional local overhead. These costs may be acceptable for integrity-sensitive agent workflows, but the current evaluation is too small to justify broad performance claims. The TensorFrame experiment demonstrates encoding-size differences only; it does not demonstrate privacy, semantic quality, compression efficiency, or safe KV-cache sharing.
+The formal evidence also shapes the protocol design. The Tamarin replay result is a useful example: signatures alone do not prevent replay. The proof requires an accepted-once invariant corresponding to the implementation's replay cache. This makes the cache a first-class security component rather than an optimization.
 
 \section{Limitations}
-The evaluated system has important scope boundaries. QUIC integration is exercised over localhost loopback with self-signed test/demo certificates; no real-network, NAT, packet-loss, multi-stream concurrency, or 0-RTT evaluation is presented. The credential layer is VC-inspired and does not implement JSON-LD context processing or URDNA2015 RDF normalization. The key store is not an HSM or enterprise PKI. Revocation propagation is local to the configured registry rather than distributed through gossip or consensus. WASM safety is evaluated for the calculator module and two adversarial fixtures, not arbitrary untrusted code or side-channel resistance. Fuel bounds compute steps, not wall-clock time. The TLA+ model checks bounded safety invariants, not cryptographic security, liveness, or full implementation refinement. The replay cache uses a per-process \texttt{dict}; its garbage collection is $O(n)$ per check and characterized as a known cost in \texttt{benchmarks/results/replay\_overhead.csv}. The benchmark and figure workflow is intentionally preserved for review, but v0.3 should replace it with a single fail-closed reproduction script and versioned manifests.
 
-\section{Future Work}
-Concrete next steps include distributed revocation gossip; multi-process concurrency-safe budget reservation; HSM/keyring-backed key storage as a default; richer formal modeling with cryptographic protocols via ProVerif or Tamarin; liveness analysis via TLC fairness annotations; wall-clock interruption for WASM via wasmtime epoch interruption; multi-tenant sandbox isolation; fuzz testing on message validation and authorization paths; protocol adapters bridging SIFR frames to MCP, A2A, ACP, and ANP carriers; and privacy-preserving TensorFrame designs informed by embedding inversion and KV-cache leakage research.
+SIFR is a research artifact, not a production system. The following limitations are explicit.
+
+\textbf{Cryptographic assumptions.} Ed25519, SHA-256, Argon2id, and AES-GCM are assumed secure under standard assumptions; their internal security is not proven.
+
+\textbf{Credential scope.} Credentials are VC-inspired but not W3C VC compliant. JSON-LD context processing, URDNA2015 normalization, and standard credential-status mechanisms are out of scope.
+
+\textbf{Identity scope.} The implementation supports \texttt{did:web} and a local \texttt{did:sifr} method with selected Ed25519 key formats, not the full DID ecosystem.
+
+\textbf{Revocation and replay scope.} Revocation and replay protection are local to the configured verifier state. Distributed revocation, multi-process replay coordination, and consensus are future work.
+
+\textbf{WASM scope.} WASM evidence covers a calculator module and adversarial fixtures. It does not establish arbitrary untrusted-code safety, side-channel resistance, or multi-tenant isolation.
+
+\textbf{Network scope.} QUIC is evaluated on localhost and a single-host Docker bridge with NetEm impairment. Multi-host, NAT, mobile, and Internet-scale evaluation are future work.
+
+\textbf{Formal scope.} TLA+ checking is bounded. Tamarin abstracts cryptographic primitives and includes a replay-cache restriction representing implementation state. There is no Coq/TLAPS refinement proof from Python code to the formal models.
+
+\section{Reproducibility}
+
+The artifact is public at \url{https://github.com/RaneemAlthaqafi/SIFR_Protocol}. A minimal reviewer path is:
+\begin{lstlisting}
+pip install -e ".[dev]"
+SIFR_TLC_FROZEN=1 python -m pytest -q
+python examples/demo_secure_quic_wasm_did_flow.py
+python examples/demo_v0_3_adversary_cases.py
+\end{lstlisting}
+
+The symbolic proof can be checked with Docker:
+\begin{lstlisting}
+docker run --rm --entrypoint sh \
+  -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 \
+  -v "$PWD:/work" -w /work aeads/tamarin:latest \
+  -c 'tamarin-prover --prove formal/tamarin/sifr_core.spthy \
+      --output=/tmp/proof.spthy'
+\end{lstlisting}
+
+The repository includes benchmark results, generated figures, formal outputs, proof-obligation matrices, release manifests, and the Overleaf-ready paper directory.
 
 \section{Conclusion}
-SIFR presents a narrow but complete vertical slice for structured, signed, capability-checked AI-agent communication: encrypted-at-rest key management; DID resolution; VC-inspired credentials with mutation defenses; signed revocation; replay protection; sandboxed WASM execution; QUIC transport evaluated on both loopback and a single-host Docker bridge with NetEm impairment; the v0.2 11-attack baseline adversary suite extended in v0.3 to 30 strict cases including QUIC-routed and TensorFrame attacks; and a TLA+ model checked against 11{,}601 states under 9 invariants. The end-to-end demo exits 0 with the expected output. The system remains deliberately scoped, but it provides a concrete, testable baseline for agent-native protocol research.
 
-\section*{Reproducibility Statement}
-The repository includes source code, tests, benchmark scripts, raw benchmark files (CSV and JSON), generated plots, paper source, and formal model files. From the repository root, run:
-\begin{verbatim}
-pip install -e ".[dev]"
-pytest
-python examples/demo_secure_quic_wasm_did_flow.py
-python examples/demo_adversary_cases.py
-python benchmarks/bench_did_resolution.py
-python benchmarks/bench_quic_latency.py
-python benchmarks/bench_adversary_rejection.py
-python benchmarks/bench_wasm_overhead.py
-python benchmarks/bench_credential_verification.py
-python benchmarks/bench_replay_overhead.py
-python benchmarks/bench_revocation_overhead.py
-\end{verbatim}
-On Windows without Bash, use \texttt{powershell -ExecutionPolicy Bypass -File scripts/run\_benchmarks.ps1}; on Unix-like systems, use \texttt{bash scripts/run\_benchmarks.sh}.
-The TLA+ model can be checked with a Java JRE 11+ and \texttt{tla2tools.jar}:
-\begin{verbatim}
-pwsh scripts/install_tla.ps1   # downloads tla2tools.jar
-pwsh formal/run_tlc.ps1        # writes formal/output/tlc_output.txt
-\end{verbatim}
-The bash equivalent is \texttt{bash formal/run\_tlc.sh}. The paper source is in \texttt{paper/}, and benchmark results are stored under \texttt{benchmarks/results/}. CI configuration in \texttt{.github/workflows/test.yml} runs the test matrix on Ubuntu and Windows for Python 3.11 and 3.12.
+SIFR argues that agentic AI services need a native communication layer that treats messages as signed, typed, authorized, replay-checked, revocation-aware, and auditable protocol events. The artifact demonstrates a complete vertical slice: a two-agent service workflow over QUIC, capability-checked WASM tool execution, signed observations, and audit-DAG verification. The evidence is deliberately multi-layered: implementation tests, adversarial tests, benchmark scripts, TLA+ bounded model checking, and Tamarin symbolic proofs. The result is not a production standard, but it is a proof-carrying baseline for a new class of agent-native Web-service protocols.
 
-\bibliographystyle{IEEEtran}
+\bibliographystyle{splncs04}
 \bibliography{references}
 
 \end{document}

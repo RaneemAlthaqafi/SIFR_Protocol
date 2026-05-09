@@ -39,7 +39,7 @@ Maps each formal-model variable, action, and invariant to its implementation cod
 | `NoConsumeWithWrongIssuer` | `verify_capability_grant` checks `payload.issuer == grant.sender_id` | `tests/test_v0_4_proof_obligations.py::test_C1_wrong_issuer` |
 | `NoConsumeWithRevokedKey` | `KeyResolver.resolve` raises `SignatureError` for revoked kids | `tests/test_v0_3_adversary.py::test_a09` |
 
-## Tamarin lemmas (model file: `formal/tamarin/sifr_core.spthy`; Tamarin NOT run in v0.4)
+## Tamarin lemmas (model file: `formal/tamarin/sifr_core.spthy`; Tamarin 1.7.1 verified all five lemmas)
 
 | Lemma | Implementation | Test |
 |---|---|---|
@@ -48,6 +48,8 @@ Maps each formal-model variable, action, and invariant to its implementation cod
 | `replay_resistance` | `ReplayCache.check_and_record` | `tests/test_v0_4_proof_obligations.py::test_C2_*` |
 | `revocation_safety` | `RevocationRegistry.is_revoked` (registry consulted before any other check) | `tests/test_v0_4_proof_obligations.py::test_C3_*` |
 | `tool_safety` | `WasmToolRunner.execute` reached only after `authorize_action` returns true | `tests/test_v0_4_proof_obligations.py::test_C6_*` |
+
+The captured proof run is stored in `formal/output/tamarin_output.txt`, with metadata in `formal/output/tamarin_metadata.json`. The replay lemma depends on the documented `accepted_once_per_message` restriction, which abstracts `sifr/replay.py:ReplayCache.check_and_record`.
 
 ## What is NOT modeled
 
