@@ -1,0 +1,5 @@
+method,n,cold_avg_ms,warm_avg_ms
+did:sifr,1000,0.073828,0.001749
+did:sifr,5000,0.065495,0.001727
+did:web,3,201.369933,0.0043
+did:web,5,186.21262,0.00704

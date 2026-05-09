@@ -1,13 +1,13 @@
 TLC2 Version 2026.05.04.141011 (rev: 2097138)
-Running breadth-first search Model-Checking with fp 19 and seed 9051365261209746314 with 16 workers on 16 cores with 3396MB heap and 64MB offheap memory [pid: 39868] (Windows 11 10.0 amd64, Microsoft 17.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Running breadth-first search Model-Checking with fp 32 and seed 8645734257066682279 with 16 workers on 16 cores with 3396MB heap and 64MB offheap memory [pid: 23068] (Windows 11 10.0 amd64, Microsoft 17.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
 Parsing file C:\Users\USER\OneDrive - Nabeh\Desktop\SIFR_P_V01\reference_SIFR_Protocol\formal\sifr_capability.tla
-Parsing file C:\Users\USER\AppData\Local\Temp\tlc-10595651364032360878\Naturals.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
-Parsing file C:\Users\USER\AppData\Local\Temp\tlc-10595651364032360878\FiniteSets.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
-Parsing file C:\Users\USER\AppData\Local\Temp\tlc-10595651364032360878\Sequences.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
-Parsing file C:\Users\USER\AppData\Local\Temp\tlc-10595651364032360878\TLC.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
-Parsing file C:\Users\USER\AppData\Local\Temp\tlc-10595651364032360878\_TLCTrace.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
-Parsing file C:\Users\USER\AppData\Local\Temp\tlc-10595651364032360878\TLCExt.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
-Parsing file C:\Users\USER\AppData\Local\Temp\tlc-10595651364032360878\Integers.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file C:\Users\USER\AppData\Local\Temp\tlc-11520091173499787536\Naturals.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file C:\Users\USER\AppData\Local\Temp\tlc-11520091173499787536\FiniteSets.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file C:\Users\USER\AppData\Local\Temp\tlc-11520091173499787536\Sequences.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file C:\Users\USER\AppData\Local\Temp\tlc-11520091173499787536\TLC.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file C:\Users\USER\AppData\Local\Temp\tlc-11520091173499787536\_TLCTrace.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file C:\Users\USER\AppData\Local\Temp\tlc-11520091173499787536\TLCExt.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file C:\Users\USER\AppData\Local\Temp\tlc-11520091173499787536\Integers.tla (jar:file:/C:/Users/USER/OneDrive%20-%20Nabeh/Desktop/SIFR_P_V01/reference_SIFR_Protocol/formal/tools/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
 Semantic processing of module Naturals
 Semantic processing of module Sequences
 Semantic processing of module FiniteSets
@@ -19,15 +19,14 @@ Semantic processing of module sifr_capability
 Linting of module TLCExt
 Linting of module _TLCTrace
 Linting of module sifr_capability
-Starting... (2026-05-09 00:00:50)
+Starting... (2026-05-09 04:06:01)
 Computing initial states...
-Finished computing initial states: 1 distinct state generated at 2026-05-09 00:00:50.
-Progress(9) at 2026-05-09 00:00:53: 159,230 states generated (159,230 s/min), 159,223 distinct states found (159,223 ds/min), 75,942 states left on queue.
+Finished computing initial states: 1 distinct state generated at 2026-05-09 04:06:01.
 Model checking completed. No error has been found.
   Estimates of the probability that TLC did not check all reachable states
   because two distinct states had the same fingerprint:
   calculated (optimistic):  val = 0.0
-276205 states generated, 276205 distinct states found, 0 states left on queue.
-The depth of the complete state graph search is 9.
-The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 12 and the 95th percentile is 4).
-Finished in 07s at (2026-05-09 00:00:56)
+11601 states generated, 11601 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 7.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 14 and the 95th percentile is 3).
+Finished in 01s at (2026-05-09 04:06:02)

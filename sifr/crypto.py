@@ -74,6 +74,17 @@ def verify_message(
         kid = sig.get("kid")
         if not kid:
             raise SignatureError("signature missing kid; required for resolver-based verification")
+        # v0.3 binding: a resolver-verified message must use a kid whose DID
+        # prefix matches the message's sender_id. This prevents the
+        # "swap-kid-to-valid-but-unauthorized-key" attack class where the
+        # attacker re-signs with a different valid keypair and forges sender_id.
+        sender_id = message.get("sender_id")
+        if isinstance(sender_id, str) and "#" in kid:
+            kid_did = kid.split("#", 1)[0]
+            if kid_did != sender_id:
+                raise SignatureError(
+                    f"kid DID {kid_did!r} does not match sender_id {sender_id!r}"
+                )
         public_key = key_or_resolver.resolve(kid)
     try:
         public_key.verify(base64.b64decode(sig["value"]), message_to_canonical_bytes(message))

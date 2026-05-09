@@ -404,6 +404,55 @@ Demo completed successfully.
 
 The companion test \texttt{tests/test\_secure\_flow.py} subprocess-launches the demo and asserts each required \texttt{OK} line is present and the exit code is 0.
 
+\section{Claims and Evidence Map (v0.3)}
+\label{sec:claims}
+Table~\ref{tab:claims} maps each v0.3 claim to its implementation files, positive and negative tests, benchmark or formal artifact, and paper location. A claim is shown as \emph{proven} only if every applicable evidence row is present and reproducible from a clean checkout via \texttt{scripts/reproduce\_all.sh}. Honest \emph{partial} rows describe scope boundaries: VC-inspired credentials (no W3C VC compliance), DID resolution restricted to \texttt{Ed25519VerificationKey2020}/\texttt{2018} with \texttt{publicKeyBase64}, QUIC evaluated on loopback only, and WASM isolation tested against the calculator and two adversarial fixtures.
+
+\begin{table*}[t]
+\caption{SIFR v0.3 claim-to-evidence map. \textit{partial} rows are explicit scope boundaries documented in \texttt{docs/proof\_obligations\_v0\_3.md}.}
+\label{tab:claims}
+\centering
+\small
+\begin{tabular}{p{0.045\linewidth}p{0.21\linewidth}p{0.18\linewidth}p{0.10\linewidth}p{0.16\linewidth}p{0.10\linewidth}p{0.07\linewidth}}
+\toprule
+ID & Claim & Code & Tests & Bench/Artifact & Limitation & Status\\
+\midrule
+P1 & Signed canonical frames & \texttt{sifr/canonical.py}, \texttt{sifr/crypto.py} & \texttt{test\_crypto.py}, A01-A04, A08 & \texttt{signature\_overhead.csv} & none & proven\\
+P2 & Capability authorization & \texttt{sifr/capabilities.py} & \texttt{test\_capabilities.py}, A07-A09/A12/A18/A22 & TLC I1-I5, I8 & per-process budget & proven\\
+P3 & VC-inspired credentials & \texttt{sifr/credentials.py} & \texttt{test\_credentials.py}, A05-A07, A10-A11 & \texttt{credential\_verification.csv} & not W3C VC & partial\\
+P4 & Capability revocation & \texttt{sifr/revocation.py} & \texttt{test\_revocation.py}, A12 & TLC I4 & per-process & proven\\
+P5 & Replay protection & \texttt{sifr/replay.py} & \texttt{test\_replay.py}, A13-A17 & TLC I6 & per-process cache & proven\\
+P6 & DID resolution + key binding & \texttt{sifr/did/}, \texttt{crypto.verify\_message} & \texttt{test\_did\_resolution.py}, A08-A09 & \texttt{did\_resolution.csv} & no multibase / JWK & partial\\
+P7 & QUIC transport & \texttt{sifr/transport/quic.py} & \texttt{test\_quic\_transport.py}, A25-A27 & \texttt{quic\_latency.csv} & loopback only & partial\\
+P8 & WASM tool isolation & \texttt{sifr/wasm\_runner.py} & \texttt{test\_wasm\_runner.py}, A23-A24 & \texttt{wasm\_overhead.csv} & calculator + 2 fixtures only & partial\\
+P9 & Audit DAG integrity & \texttt{sifr/audit\_dag.py} & \texttt{test\_audit\_dag.py}, A20-A21 & impl-only I10 & no formal model & proven\\
+P10 & Adversary rejection (30 cases) & \texttt{tests/test\_v0\_3\_adversary.py} & 30/30 cases A01-A30 & \texttt{adversary\_rejection.json} & not penetration-testing & proven\\
+P11 & Formal authorization model & \texttt{formal/sifr\_capability.tla} & \texttt{test\_formal\_artifacts.py} & TLC 11{,}601 states / 9 inv. & no liveness, no crypto & proven\\
+P12 & End-to-end secure flow & \texttt{demo\_secure\_quic\_wasm\_did\_flow.py} & \texttt{test\_secure\_flow.py} & demo stdout & single-process & proven\\
+P13 & Reproducible bench pipeline & \texttt{scripts/run\_all\_benchmarks.sh}, \texttt{benchmarks/bench\_io.py} & step 8 of \texttt{reproduce\_all.sh} & \texttt{v0.3/manifest.json} & none & proven\\
+P14 & Reproducible figure pipeline & \texttt{scripts/generate\_all\_figures.py} & step 8 of \texttt{reproduce\_all.sh} & \texttt{figure\_manifest.json} & none & proven\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{v0.3 strict adversary evaluation}
+\texttt{tests/test\_v0\_3\_adversary.py} extends the v0.2 11-case suite to thirty enumerated controlled cases. The set covers tampering at the payload, sender, receiver, and capability-action levels (A01-A04); credential-layer attacks (A05-A07, A10, A11); key-layer attacks including the kid-DID/sender-id binding closure added in v0.3 (A08, A09); revocation and replay (A12-A17); framing and authorization (A18-A22); WASM-host-import and fuel attacks (A23, A24); QUIC-routed replay, malformed-frame, and revocation cases (A25-A27); and TensorFrame shape-bomb / dtype / payload-length attacks (A28-A30). Each case asserts the exact rejection error class and that \texttt{WasmToolRunner.last\_invocation\_evidence} is unchanged after the rejection. Per-case mean reject latency is reported in \texttt{benchmarks/results/v0.3/adversary\_rejection.json} and visualized in Figure~\ref{fig:adversary_v0_3}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/benchmark_v0_3_adversary.png}
+\caption{SIFR v0.3 strict adversary evaluation: 30 controlled cases, time-to-reject on log scale, color-coded by rejecting error class. Cases marked ``pytest only'' (A15, A25-A27) are validated by \texttt{pytest} fixtures whose timing is dominated by setup; their pass/fail is the evidence, not their latency.}
+\label{fig:adversary_v0_3}
+\end{figure}
+
+\subsection{v0.3 formal model strengthening}
+The v0.2 model checked seven invariants on a state machine with one issuer and one kid. The v0.3 model adds explicit \texttt{Issuers} and \texttt{Kids} to the state and two new invariants:
+\begin{itemize}
+\item \texttt{NoConsumeWithWrongIssuer} (I8): every consume references the issuer the cap was issued under.
+\item \texttt{NoConsumeWithRevokedKey} (I9): every consume's kid is not in the \texttt{revokedKids} set.
+\end{itemize}
+The bounded model uses \texttt{Caps=\{c1\}}, \texttt{Subs=\{alice,bob\}}, \texttt{Issuers=\{alice,bob\}}, \texttt{Acts=\{add,multiply\}}, \texttt{Msgs=\{m1,m2\}}, \texttt{Kids=\{k1,k2\}}, \texttt{MaxCalls=2}. TLC explores 11{,}601 distinct states at depth 7 and reports no error for all 9 invariants. Two further invariants (I7 \emph{TamperedCredentialNeverAllowed} and I10 \emph{AuditTamperDetected}) are byte-level / DAG-level properties that the state machine deliberately abstracts away; they are validated only by implementation tests (\texttt{tests/test\_credentials.py}, \texttt{tests/test\_audit\_dag.py}, and adversary cases A05-A07 / A21).
+
 \section{Discussion}
 The implementation demonstrates that a compact vertical slice can bind communication semantics, signatures, capabilities, tool execution, and audit lineage. The central value of SIFR is that the protocol claim is executable and testable: the demo can be run, frames can be tampered with, grants can be expired, budgets can be exceeded, DAG parents can be removed, figures can be regenerated, and the resulting behavior can be inspected.
 

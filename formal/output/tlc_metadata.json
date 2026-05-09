@@ -1,0 +1,27 @@
+{
+  "tool": "TLC2 (TLA+ Tools)",
+  "tool_version": "2026.05.04",
+  "java_version": "OpenJDK 17.0.10 (Microsoft)",
+  "config": "MC.cfg",
+  "flags": "-workers auto -deadlock",
+  "timestamp_utc": "2026-05-09T01:06:21Z",
+  "distinct_states": 11601,
+  "depth": 7,
+  "duration_s": 1,
+  "result": "Model checking completed. No error has been found.",
+  "invariants_checked": [
+    "TypeInvariant",
+    "NoUnauthorizedActionConsume",
+    "NoWrongSubjectConsume",
+    "NoConsumeAfterExpire",
+    "NoConsumeAfterRevoke",
+    "NoOverBudgetConsume",
+    "NoReplayedConsume",
+    "NoConsumeWithWrongIssuer",
+    "NoConsumeWithRevokedKey"
+  ],
+  "invariants_implementation_only": [
+    "I7_TamperedCredentialNeverAllowed (tests/test_v0_3_adversary.py::test_a05/06/07)",
+    "I10_AuditTamperDetected (tests/test_audit_dag.py + tests/test_v0_3_adversary.py::test_a21)"
+  ]
+}

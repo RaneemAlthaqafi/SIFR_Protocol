@@ -1,0 +1,44 @@
+{
+  "version": "v0.3",
+  "command": "scripts/run_all_benchmarks.sh",
+  "git_commit": "e514e4ec8a215c24846c772b8ad461ce3d182347",
+  "git_describe": "v0.2.0-3-ge514e4e-dirty",
+  "timestamp_utc": "2026-05-09T01:14:01Z",
+  "os": "Windows 11",
+  "python": "3.14.2",
+  "dependencies": {
+    "aioquic": "1.3.0",
+    "wasmtime": "44.0.0",
+    "argon2-cffi": "25.1.0",
+    "httpx": "0.28.1",
+    "cryptography": "48.0.0",
+    "numpy": "2.3.5",
+    "pytest": "9.0.3",
+    "matplotlib": "3.10.8"
+  },
+  "benchmark_script_hashes": {
+    "bench_adversary_rejection.py": "5055a0c7f34fb8dcb0feb7c873f8535e1ac103e02b50d8bac885565929d697ed",
+    "bench_capability_enforcement.py": "fb564928b63336088a90ea17a8b6cc6f4cea62578435cc58a66a64b063254800",
+    "bench_credential_verification.py": "84a1fa4ea89fc9970f9d41e90ab3f6ac225e2d56df86dc6a6082c1ff5dd1b08c",
+    "bench_did_resolution.py": "d9528d337ec2062588dd80b853d4e9c560f8a4426eecee65d3a926b93a2bb477",
+    "bench_io.py": "f4e2e7eae4c5e039cba7c75ff8a5072c4ba69675be55ebad3d54930581ef0aae",
+    "bench_latency.py": "4b8061f1c467db9884bcd54cd003aefbaea0126e4a2fdbd627136f8cc6a6dd56",
+    "bench_payload_size.py": "b2905f15a229a7fb8146bfb5fbbebf7c3209ca048910ba5588729aac6623ff5a",
+    "bench_quic_latency.py": "f240cc4cd636280fa75788edfe0a34e9629ebeeac0b1ae33ee11bdc1349cbcd1",
+    "bench_replay_overhead.py": "8d0f02ab1573e172f1741df3fab07043fe1eb394b888fb1115d913e10d85272a",
+    "bench_revocation_overhead.py": "ead8c621271fb5cfd25a3d0c4c1f590f5be4e26a0a79aedbed46ec7661a91997",
+    "bench_signature_overhead.py": "47e7ae061037d9f77fad144968fba3c7865aa1936574f1f0c6d9dfa84bd370a9",
+    "bench_v0_3_adversary_rejection.py": "07f6da40afef96aa7f6ee7808141c98ddbd96d96b7b3b866dc912b1441d1c8ce",
+    "bench_wasm_overhead.py": "d544c62816f8d0d065d3add0dbe5099d4bde96069fea5efa1723e8da3ce2f653",
+    "environment.py": "3923ceeef9e161f71d2d34ba9c4c224a4d490877b3a8ee8d3ec1ff090debe54f"
+  },
+  "result_file_hashes": {
+    "adversary_rejection.json": "8ae709232cf4a98f5f77ce85e9e62cddfe3e9f3ade009aad3c9337be574adcb7",
+    "credential_verification.csv": "3997395e502bb92750512d66331fdc4a0c1b7e9897209a57ab7f0ea9ff02fdda",
+    "did_resolution.csv": "898aa81fd0512e6f880d47fec0998e458503a830290445940339294024b7ee9f",
+    "quic_latency.csv": "4d3fd49b1318771a15d0d091471edcce26152995d0bcfa5b2d32364767eee837",
+    "replay_overhead.csv": "42054b4d37bcb53b73107029c7415592dfc00a19066606a8e44eea401287be1f",
+    "revocation_overhead.csv": "8849834d08001ea1085cf57b5a89cbbabae273e7e438376d337b80ae559cf837",
+    "wasm_overhead.csv": "81d0a4e4c9755b42da4cd97e2f27c3c46a02bda250611ba3e1a896bed229d101"
+  }
+}

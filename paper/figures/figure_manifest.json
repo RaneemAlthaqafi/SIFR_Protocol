@@ -1,0 +1,75 @@
+{
+  "version": "v0.3",
+  "results_dir": "benchmarks\\results\\v0.3",
+  "figures": [
+    {
+      "figure": "benchmark_did_resolution.png",
+      "source_data": "did_resolution.csv",
+      "exists": true,
+      "figure_sha256": "0cf06477b4ba289a277081ad7da19bd47d8b85776a7741a88565ccfe6bd74aeb",
+      "source_sha256": "898aa81fd0512e6f880d47fec0998e458503a830290445940339294024b7ee9f"
+    },
+    {
+      "figure": "benchmark_replay_overhead.png",
+      "source_data": "replay_overhead.csv",
+      "exists": true,
+      "figure_sha256": "c2c2570bcbb7fdac4fbf11b2c2335a2f155c0cc36c8f4e55e4c5e893c59f4cda",
+      "source_sha256": "42054b4d37bcb53b73107029c7415592dfc00a19066606a8e44eea401287be1f"
+    },
+    {
+      "figure": "benchmark_revocation_overhead.png",
+      "source_data": "revocation_overhead.csv",
+      "exists": true,
+      "figure_sha256": "584c96e1499cee6c022bb217325e7dde89e7526de90d4aa809be7c18663c57d0",
+      "source_sha256": "8849834d08001ea1085cf57b5a89cbbabae273e7e438376d337b80ae559cf837"
+    },
+    {
+      "figure": "benchmark_credential_verification.png",
+      "source_data": "credential_verification.csv",
+      "exists": true,
+      "figure_sha256": "1da866cdf7904719d2d6468260d1f3c864e7146741f0645acd072efc9b957f1f",
+      "source_sha256": "3997395e502bb92750512d66331fdc4a0c1b7e9897209a57ab7f0ea9ff02fdda"
+    },
+    {
+      "figure": "benchmark_wasm_overhead.png",
+      "source_data": "wasm_overhead.csv",
+      "exists": true,
+      "figure_sha256": "9823f86e6984f76bbf1c35c29ee4f355775bd932f46a962cff5497bde9432350",
+      "source_sha256": "81d0a4e4c9755b42da4cd97e2f27c3c46a02bda250611ba3e1a896bed229d101"
+    },
+    {
+      "figure": "benchmark_quic_latency.png",
+      "source_data": "quic_latency.csv",
+      "exists": true,
+      "figure_sha256": "ad95cc843f82959d7e56f57e4b7811b17e3d8fa51ef47431389a9295895eea4a",
+      "source_sha256": "4d3fd49b1318771a15d0d091471edcce26152995d0bcfa5b2d32364767eee837"
+    },
+    {
+      "figure": "benchmark_adversary.png",
+      "source_data": "adversary_rejection.json",
+      "exists": true,
+      "figure_sha256": "31629a034f4f8ebabc88e9b3822bb290914606dbeea4bf53c9a9828cb0922456",
+      "source_sha256": "8ae709232cf4a98f5f77ce85e9e62cddfe3e9f3ade009aad3c9337be574adcb7"
+    },
+    {
+      "figure": "benchmark_v0_1_vs_v0_2.png",
+      "source_data": null,
+      "exists": true,
+      "figure_sha256": "63b30b50d9bc9ad72493164b8992a6ef638dcb652277309755647e4179a0a9ad"
+    },
+    {
+      "figure": "ieee_adversary_rejection.pdf",
+      "source_data": "../v0.2/adversary_rejection.json",
+      "exists": true,
+      "figure_sha256": "69b3e0cfa3c9c1f621b9851a7a2fb995a848186d25c315b9258bdb9fe0112f52",
+      "source_sha256": "b4eec5bbb572a268ca6cd4744eb985b8c55e75b4f7d899269c6981446f777b08"
+    },
+    {
+      "figure": "benchmark_v0_3_adversary.png",
+      "source_data": "adversary_rejection.json",
+      "exists": true,
+      "figure_sha256": "32ce606f83e91b00cde29a2b898a1d73c5f7aca672f81a994aec4c50cd9334a9",
+      "source_sha256": "8ae709232cf4a98f5f77ce85e9e62cddfe3e9f3ade009aad3c9337be574adcb7"
+    }
+  ]
+}

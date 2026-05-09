@@ -1,0 +1,302 @@
+[
+  {
+    "attack_id": "A01",
+    "name": "tamper_payload",
+    "expected": "SignatureError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 445.1,
+    "passed": true
+  },
+  {
+    "attack_id": "A02",
+    "name": "tamper_sender",
+    "expected": "SignatureError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 326.1,
+    "passed": true
+  },
+  {
+    "attack_id": "A03",
+    "name": "tamper_receiver",
+    "expected": "SignatureError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 374.5,
+    "passed": true
+  },
+  {
+    "attack_id": "A04",
+    "name": "tamper_capability_action",
+    "expected": "SignatureError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 404.9,
+    "passed": true
+  },
+  {
+    "attack_id": "A05",
+    "name": "credential_subject_mismatch",
+    "expected": "CredentialError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 595.2,
+    "passed": true
+  },
+  {
+    "attack_id": "A06",
+    "name": "credential_issuer_mismatch",
+    "expected": "CredentialError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 269.9,
+    "passed": true
+  },
+  {
+    "attack_id": "A07",
+    "name": "credential_signed_by_wrong_key",
+    "expected": "CredentialError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 351.4,
+    "passed": true
+  },
+  {
+    "attack_id": "A08",
+    "name": "swap_kid_to_valid_unauthorized_key",
+    "expected": "SignatureError|UnauthorizedAction",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 302.4,
+    "passed": true
+  },
+  {
+    "attack_id": "A09",
+    "name": "revoked_key",
+    "expected": "SignatureError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 274.9,
+    "passed": true
+  },
+  {
+    "attack_id": "A10",
+    "name": "expired_credential",
+    "expected": "CredentialError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 350.2,
+    "passed": true
+  },
+  {
+    "attack_id": "A11",
+    "name": "not_yet_valid_credential",
+    "expected": "CredentialError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 352.0,
+    "passed": true
+  },
+  {
+    "attack_id": "A12",
+    "name": "revoked_capability",
+    "expected": "UnauthorizedAction(REVOKED)",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 431.4,
+    "passed": true
+  },
+  {
+    "attack_id": "A13",
+    "name": "replay_same_message",
+    "expected": "ReplayError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 1631.2,
+    "passed": true
+  },
+  {
+    "attack_id": "A14",
+    "name": "replay_with_modified_signature",
+    "expected": "ReplayError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 1613.5,
+    "passed": true
+  },
+  {
+    "attack_id": "A16",
+    "name": "stale_timestamp",
+    "expected": "ReplayError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 489.4,
+    "passed": true
+  },
+  {
+    "attack_id": "A17",
+    "name": "future_timestamp",
+    "expected": "ReplayError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 464.7,
+    "passed": true
+  },
+  {
+    "attack_id": "A18",
+    "name": "oversized_payload",
+    "expected": "UnauthorizedAction(BUDGET)",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 520.0,
+    "passed": true
+  },
+  {
+    "attack_id": "A19",
+    "name": "malformed_frame",
+    "expected": "MessageValidationError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 226.2,
+    "passed": true
+  },
+  {
+    "attack_id": "A20",
+    "name": "missing_dag_parent",
+    "expected": "AuditDAGError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 332.0,
+    "passed": true
+  },
+  {
+    "attack_id": "A21",
+    "name": "tampered_dag_node",
+    "expected": "AuditDAGError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 297.3,
+    "passed": true
+  },
+  {
+    "attack_id": "A22",
+    "name": "unauthorized_tool",
+    "expected": "UnauthorizedAction(UNAUTH)",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 477.6,
+    "passed": true
+  },
+  {
+    "attack_id": "A23",
+    "name": "wasm_filesystem_import",
+    "expected": "WasmToolError",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 1162.1,
+    "passed": true
+  },
+  {
+    "attack_id": "A24",
+    "name": "wasm_infinite_loop",
+    "expected": "wasmtime.Trap(fuel)",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 833.4,
+    "passed": true
+  },
+  {
+    "attack_id": "A28",
+    "name": "tensor_shape_bomb",
+    "expected": "ValueError(shape)",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 260.0,
+    "passed": true
+  },
+  {
+    "attack_id": "A29",
+    "name": "tensor_invalid_dtype",
+    "expected": "ValueError(dtype)",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 231.9,
+    "passed": true
+  },
+  {
+    "attack_id": "A30",
+    "name": "tensor_payload_length_mismatch",
+    "expected": "ValueError(shape)",
+    "test_file": "tests/test_v0_3_adversary.py",
+    "reached_wasm": false,
+    "actual_error": "_passed_",
+    "latency_us": 240.2,
+    "passed": true
+  },
+  {
+    "attack_id": "A15",
+    "name": "replay_across_restarted_cache",
+    "expected": "ReplayError",
+    "actual_error": "_pytest_only_",
+    "latency_us": null,
+    "passed": true,
+    "reached_wasm": false,
+    "test_file": "tests/test_v0_3_adversary.py::test_a15_replay_across_restarted_cache"
+  },
+  {
+    "attack_id": "A25",
+    "name": "quic_malformed_frame_rejected",
+    "expected": "json.JSONDecodeError|ConnectionError",
+    "actual_error": "_pytest_only_",
+    "latency_us": null,
+    "passed": true,
+    "reached_wasm": false,
+    "test_file": "tests/test_v0_3_adversary.py::test_a25_quic_malformed_frame_rejected"
+  },
+  {
+    "attack_id": "A26",
+    "name": "quic_duplicate_action_rejected",
+    "expected": "ReplayError",
+    "actual_error": "_pytest_only_",
+    "latency_us": null,
+    "passed": true,
+    "reached_wasm": false,
+    "test_file": "tests/test_v0_3_adversary.py::test_a26_quic_duplicate_action_rejected"
+  },
+  {
+    "attack_id": "A27",
+    "name": "quic_revoked_credential_rejected",
+    "expected": "UnauthorizedAction(REVOKED)",
+    "actual_error": "_pytest_only_",
+    "latency_us": null,
+    "passed": true,
+    "reached_wasm": false,
+    "test_file": "tests/test_v0_3_adversary.py::test_a27_quic_revoked_credential_rejected"
+  }
+]

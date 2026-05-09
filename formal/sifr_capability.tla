@@ -1,154 +1,196 @@
 ---------------- MODULE sifr_capability ----------------
 (******************************************************************)
-(* TLA+ model of the SIFR capability lifecycle.                    *)
+(* SIFR v0.3 TLA+ model of the capability authorization state      *)
+(* machine.                                                         *)
 (*                                                                  *)
-(* Capability states evolve as:                                     *)
+(* States evolve as:                                                *)
 (*   unissued -> active -> {expired | revoked}                      *)
+(*                                                                  *)
 (* Within "active", a capability may be consumed up to MaxCalls     *)
-(* times by its bound subject for actions in its grant.             *)
+(* times, by its bound subject, for actions in its grant, by an     *)
+(* unrevoked key bound to that subject's DID.                       *)
 (*                                                                  *)
-(* Precondition guards on Consume encode the SIFR authorization     *)
-(* layer: state must be "active", subject must match, action must   *)
-(* be granted, budget must remain, and the (subject, message_id)    *)
-(* pair must not already have been consumed.                        *)
-(*                                                                  *)
-(* The invariants in this module + MC.cfg encode the section 1.9    *)
-(* properties of docs/full_security_implementation_prompt.md.       *)
-(*                                                                  *)
-(* This model intentionally does NOT model cryptography. It models  *)
-(* the state machine that the v0.2 implementation enforces in       *)
-(* sifr/capabilities.py and sifr/replay.py.                          *)
+(* This module captures authorization safety only. It does not      *)
+(* model cryptography (no Dolev-Yao adversary, no symbolic          *)
+(* encryption), liveness, or audit-DAG integrity. Those are         *)
+(* tested at the implementation level (see                          *)
+(* tests/test_v0_3_adversary.py and tests/test_audit_dag.py).        *)
 (******************************************************************)
 EXTENDS Naturals, FiniteSets, Sequences, TLC
 
 CONSTANTS
     Caps,         \* finite set of capability identifiers
     Subs,         \* finite set of subject identifiers
+    Issuers,      \* finite set of issuer identifiers
     Acts,         \* finite set of action names
     Msgs,         \* finite set of message identifiers (for replay)
+    Kids,         \* finite set of key identifiers
     MaxCalls      \* per-capability call budget
 
 ASSUME
     /\ MaxCalls \in Nat \ {0}
-    /\ Caps # {}
-    /\ Subs # {}
-    /\ Acts # {}
-    /\ Msgs # {}
+    /\ Caps # {} /\ Subs # {} /\ Issuers # {} /\ Acts # {} /\ Msgs # {} /\ Kids # {}
 
 CapStates == {"unissued", "active", "expired", "revoked"}
 UNSET == "_unset_"
 
 VARIABLES
-    state,        \* [Caps -> CapStates]
-    sub,          \* [Caps -> Subs \cup {UNSET}]
-    grantedActs,  \* [Caps -> SUBSET Acts]
-    used,         \* [Caps -> 0..MaxCalls]
-    consumedMsg,  \* SUBSET (Subs \X Msgs) -- replay set
-    history       \* Seq of records [op, cap, sub, msg, act]
+    state,         \* [Caps -> CapStates]
+    sub,           \* [Caps -> Subs \cup {UNSET}]
+    iss,           \* [Caps -> Issuers \cup {UNSET}]
+    grantedActs,   \* [Caps -> SUBSET Acts]
+    used,          \* [Caps -> 0..MaxCalls]
+    consumedMsg,   \* SUBSET (Subs \X Msgs)  -- replay set
+    revokedKids,   \* SUBSET Kids           -- key-level revocation set
+    history        \* Seq of records [op, cap, sub, iss, kid, msg, act]
 
-vars == <<state, sub, grantedActs, used, consumedMsg, history>>
+vars == <<state, sub, iss, grantedActs, used, consumedMsg, revokedKids, history>>
 
 TypeInvariant ==
     /\ state \in [Caps -> CapStates]
     /\ sub \in [Caps -> Subs \cup {UNSET}]
+    /\ iss \in [Caps -> Issuers \cup {UNSET}]
     /\ grantedActs \in [Caps -> SUBSET Acts]
     /\ used \in [Caps -> 0..MaxCalls]
     /\ consumedMsg \subseteq (Subs \X Msgs)
+    /\ revokedKids \subseteq Kids
 
 Init ==
     /\ state = [c \in Caps |-> "unissued"]
     /\ sub = [c \in Caps |-> UNSET]
+    /\ iss = [c \in Caps |-> UNSET]
     /\ grantedActs = [c \in Caps |-> {}]
     /\ used = [c \in Caps |-> 0]
     /\ consumedMsg = {}
+    /\ revokedKids = {}
     /\ history = << >>
 
-Issue(c, s, A) ==
+Issue(c, s, i, A) ==
     /\ state[c] = "unissued"
     /\ A \subseteq Acts
     /\ A # {}
     /\ state' = [state EXCEPT ![c] = "active"]
     /\ sub' = [sub EXCEPT ![c] = s]
+    /\ iss' = [iss EXCEPT ![c] = i]
     /\ grantedActs' = [grantedActs EXCEPT ![c] = A]
-    /\ history' = Append(history, [op |-> "Issue", cap |-> c, sub |-> s, msg |-> "_n_a_", act |-> "_n_a_"])
-    /\ UNCHANGED <<used, consumedMsg>>
+    /\ history' = Append(history, [op |-> "Issue", cap |-> c, sub |-> s, iss |-> i, kid |-> UNSET, msg |-> "_n_a_", act |-> "_n_a_"])
+    /\ UNCHANGED <<used, consumedMsg, revokedKids>>
 
 Expire(c) ==
     /\ state[c] = "active"
     /\ state' = [state EXCEPT ![c] = "expired"]
-    /\ history' = Append(history, [op |-> "Expire", cap |-> c, sub |-> UNSET, msg |-> "_n_a_", act |-> "_n_a_"])
-    /\ UNCHANGED <<sub, grantedActs, used, consumedMsg>>
+    /\ history' = Append(history, [op |-> "Expire", cap |-> c, sub |-> UNSET, iss |-> UNSET, kid |-> UNSET, msg |-> "_n_a_", act |-> "_n_a_"])
+    /\ UNCHANGED <<sub, iss, grantedActs, used, consumedMsg, revokedKids>>
 
 Revoke(c) ==
     /\ state[c] = "active"
     /\ state' = [state EXCEPT ![c] = "revoked"]
-    /\ history' = Append(history, [op |-> "Revoke", cap |-> c, sub |-> UNSET, msg |-> "_n_a_", act |-> "_n_a_"])
-    /\ UNCHANGED <<sub, grantedActs, used, consumedMsg>>
+    /\ history' = Append(history, [op |-> "Revoke", cap |-> c, sub |-> UNSET, iss |-> UNSET, kid |-> UNSET, msg |-> "_n_a_", act |-> "_n_a_"])
+    /\ UNCHANGED <<sub, iss, grantedActs, used, consumedMsg, revokedKids>>
 
-Consume(c, s, a, m) ==
+RevokeKey(k) ==
+    /\ k \notin revokedKids
+    /\ revokedKids' = revokedKids \cup {k}
+    /\ history' = Append(history, [op |-> "RevokeKey", cap |-> CHOOSE c \in Caps : TRUE, sub |-> UNSET, iss |-> UNSET, kid |-> k, msg |-> "_n_a_", act |-> "_n_a_"])
+    /\ UNCHANGED <<state, sub, iss, grantedActs, used, consumedMsg>>
+
+Consume(c, s, i, k, a, m) ==
     /\ state[c] = "active"
     /\ sub[c] = s
+    /\ iss[c] = i
+    /\ k \notin revokedKids
     /\ a \in grantedActs[c]
     /\ used[c] < MaxCalls
     /\ <<s, m>> \notin consumedMsg
     /\ used' = [used EXCEPT ![c] = used[c] + 1]
     /\ consumedMsg' = consumedMsg \cup {<<s, m>>}
-    /\ history' = Append(history, [op |-> "Consume", cap |-> c, sub |-> s, msg |-> m, act |-> a])
-    /\ UNCHANGED <<state, sub, grantedActs>>
+    /\ history' = Append(history, [op |-> "Consume", cap |-> c, sub |-> s, iss |-> i, kid |-> k, msg |-> m, act |-> a])
+    /\ UNCHANGED <<state, sub, iss, grantedActs, revokedKids>>
 
 Next ==
-    \/ \E c \in Caps, s \in Subs, A \in (SUBSET Acts) \ {{}}: Issue(c, s, A)
+    \/ \E c \in Caps, s \in Subs, i \in Issuers, A \in (SUBSET Acts) \ {{}}: Issue(c, s, i, A)
     \/ \E c \in Caps: Expire(c)
     \/ \E c \in Caps: Revoke(c)
-    \/ \E c \in Caps, s \in Subs, a \in Acts, m \in Msgs: Consume(c, s, a, m)
+    \/ \E k \in Kids: RevokeKey(k)
+    \/ \E c \in Caps, s \in Subs, i \in Issuers, k \in Kids, a \in Acts, m \in Msgs: Consume(c, s, i, k, a, m)
 
 Spec == Init /\ [][Next]_vars
 
 (*================ INVARIANTS ================*)
 
-\* I1: budget never exceeded.
+\* I1 UnauthorizedActionNeverAllowed
+NoUnauthorizedActionConsume ==
+    \A x \in 1..Len(history):
+        history[x].op = "Consume" =>
+            history[x].act \in grantedActs[history[x].cap]
+
+\* I2 WrongSubjectNeverAllowed
+NoWrongSubjectConsume ==
+    \A x \in 1..Len(history):
+        history[x].op = "Consume" =>
+            history[x].sub = sub[history[x].cap]
+
+\* I3 ExpiredGrantNeverAllowed
+NoConsumeAfterExpire ==
+    \A x, y \in 1..Len(history):
+        (history[x].op = "Expire" /\ history[y].op = "Consume" /\
+         history[x].cap = history[y].cap /\ x < y) => FALSE
+
+\* I4 RevokedGrantNeverAllowed
+NoConsumeAfterRevoke ==
+    \A x, y \in 1..Len(history):
+        (history[x].op = "Revoke" /\ history[y].op = "Consume" /\
+         history[x].cap = history[y].cap /\ x < y) => FALSE
+
+\* I5 OverBudgetNeverAllowed
 NoOverBudgetConsume ==
     \A c \in Caps: used[c] <= MaxCalls
 
-\* I2: every consume in history has the matching bound subject.
-NoWrongSubjectConsume ==
-    \A i \in 1..Len(history):
-        history[i].op = "Consume" =>
-            history[i].sub = sub[history[i].cap]
-
-\* I3: every consume used an action in the cap's grant.
-NoUnauthorizedActionConsume ==
-    \A i \in 1..Len(history):
-        history[i].op = "Consume" =>
-            history[i].act \in grantedActs[history[i].cap]
-
-\* I4: no two consumes share the same (sub, msg). Replay protection.
+\* I6 ReplayNeverAllowed
 NoReplayedConsume ==
-    \A i, j \in 1..Len(history):
-        (i # j /\
-         history[i].op = "Consume" /\ history[j].op = "Consume" /\
-         history[i].sub = history[j].sub /\
-         history[i].msg = history[j].msg) => FALSE
+    \A x, y \in 1..Len(history):
+        (x # y /\
+         history[x].op = "Consume" /\ history[y].op = "Consume" /\
+         history[x].sub = history[y].sub /\
+         history[x].msg = history[y].msg) => FALSE
 
-\* I5: a Consume never occurs at a history index after a Revoke for the same cap.
-NoConsumeAfterRevoke ==
-    \A i, j \in 1..Len(history):
-        (history[i].op = "Revoke" /\ history[j].op = "Consume" /\
-         history[i].cap = history[j].cap /\ i < j) => FALSE
+\* I8 WrongIssuerNeverAllowed
+\*    Every consume must reference the issuer the cap was issued under.
+NoConsumeWithWrongIssuer ==
+    \A x \in 1..Len(history):
+        history[x].op = "Consume" =>
+            history[x].iss = iss[history[x].cap]
 
-\* I6: a Consume never occurs at a history index after an Expire for the same cap.
-NoConsumeAfterExpire ==
-    \A i, j \in 1..Len(history):
-        (history[i].op = "Expire" /\ history[j].op = "Consume" /\
-         history[i].cap = history[j].cap /\ i < j) => FALSE
+\* I9 RevokedKeyNeverAllowed
+\*    Every consume's kid must not be in the revokedKids set at consume time.
+\*    Since RevokeKey is monotone (only adds), if a kid is currently in
+\*    revokedKids it was either never used or used before revocation. We
+\*    check the structural form: no Consume is ever recorded for a kid that
+\*    was already revoked at the time the action fired. The Consume guard
+\*    enforces this directly; the invariant double-checks via history scan.
+NoConsumeWithRevokedKey ==
+    \A x, y \in 1..Len(history):
+        (history[x].op = "RevokeKey" /\ history[y].op = "Consume" /\
+         history[x].kid = history[y].kid /\ x < y) => FALSE
 
-(* Combined safety property (conjunction). *)
+\* Note on I7 (TamperedCredentialNeverAllowed) and I10 (AuditTamperDetected):
+\* These invariants are enforced at the byte/cryptography layer, not at the
+\* state-machine layer. They are tested at the implementation level by
+\* tests/test_credentials.py (mutation-after-sign rejection) and
+\* tests/test_audit_dag.py (CID recomputation on stored mutation), and by
+\* tests/test_v0_3_adversary.py::test_a05/06/07 and ::test_a21. They are NOT
+\* in the TLA+ proof obligation set because the model abstracts away wire
+\* bytes by design.
+
 SecureCapabilityLifecycle ==
-    /\ NoOverBudgetConsume
-    /\ NoWrongSubjectConsume
+    /\ TypeInvariant
     /\ NoUnauthorizedActionConsume
-    /\ NoReplayedConsume
-    /\ NoConsumeAfterRevoke
+    /\ NoWrongSubjectConsume
     /\ NoConsumeAfterExpire
+    /\ NoConsumeAfterRevoke
+    /\ NoOverBudgetConsume
+    /\ NoReplayedConsume
+    /\ NoConsumeWithWrongIssuer
+    /\ NoConsumeWithRevokedKey
 
 ================================================================
