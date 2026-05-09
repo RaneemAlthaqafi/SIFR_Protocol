@@ -486,6 +486,42 @@ The v0.2 model checked seven invariants on a state machine with one issuer and o
 \end{itemize}
 The bounded model uses \texttt{Caps=\{c1\}}, \texttt{Subs=\{alice,bob\}}, \texttt{Issuers=\{alice,bob\}}, \texttt{Acts=\{add,multiply\}}, \texttt{Msgs=\{m1,m2\}}, \texttt{Kids=\{k1,k2\}}, \texttt{MaxCalls=2}. TLC explores 11{,}601 distinct states at depth 7 and reports no error for all 9 invariants. Two further invariants (I7 \emph{TamperedCredentialNeverAllowed} and I10 \emph{AuditTamperDetected}) are byte-level / DAG-level properties that the state machine deliberately abstracts away; they are validated only by implementation tests (\texttt{tests/test\_credentials.py}, \texttt{tests/test\_audit\_dag.py}, and adversary cases A05-A07 / A21).
 
+\section{Formal Security Analysis (v0.4)}
+\label{sec:formal_analysis}
+
+We formalize seven security claims (C1-C7) over the SIFR core protocol and classify each by its strongest available evidence: \emph{bounded-proven} (TLC over a finite domain), \emph{symbolic-modeled} (Tamarin lemma encoded but not run in the reference environment), \emph{tested} (positive and adversarial implementation tests), \emph{assumed} (standard cryptographic or systems assumption), or \emph{future}. The full claim sheet is in \texttt{docs/security\_claims\_v0\_4.md}; the matrix mapping each claim to model, code, tests, and paper section is in \texttt{docs/proof\_obligations\_v0\_4.md}.
+
+\begin{table}[t]
+\caption{SIFR v0.4 claim status. \emph{bounded-proven} = TLC for the domain in \texttt{formal/MC.cfg}. \emph{symbolic-modeled} = Tamarin lemma encoded in \texttt{formal/tamarin/sifr\_core.spthy} but not run; promotion to \emph{symbolic-proven} requires a Tamarin install. \emph{tested} = positive + adversarial tests in \texttt{tests/test\_v0\_4\_proof\_obligations.py} and the v0.3 strict suite.}
+\label{tab:formal_claims}
+\centering
+\small
+\begin{tabular}{p{0.06\linewidth}p{0.34\linewidth}p{0.50\linewidth}}
+\toprule
+ID & Claim (one line) & Status\\
+\midrule
+C1 & Authorization safety (signature, replay, revocation, expiration, budget, action, subject, issuer all checked before consume) & bounded-proven (TLC) + symbolic-modeled + tested\\
+C2 & Replay safety: \texttt{(sender, session, msgid)} not accepted twice & bounded-proven (TLC) + symbolic-modeled + tested\\
+C3 & Revocation safety: revoked cap not accepted & bounded-proven (TLC) + symbolic-modeled + tested\\
+C4 & Signature binding: kid's DID prefix matches \texttt{sender\_id} & tested + symbolic-modeled (cryptographic strength assumed)\\
+C5 & Audit DAG tamper evidence: stored byte mutation breaks CID & tested (SHA-256 collision resistance assumed)\\
+C6 & No tool before authorization: \texttt{authorize\_action} precedes runner & tested + symbolic-modeled\\
+C7 & Bounded state-machine safety: 9 invariants over 11{,}601 states & bounded-proven (TLC)\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Adversary models and assumptions}
+We separate three adversary models: (i) the \emph{state-machine adversary} explored by TLC, which can fire any sequence of \texttt{Issue}, \texttt{Expire}, \texttt{Revoke}, \texttt{RevokeKey}, \texttt{Consume} transitions allowed by the model; (ii) the \emph{Dolev-Yao symbolic adversary} encoded in \texttt{formal/tamarin/sifr\_core.spthy}, which observes wire traffic, can synthesise messages from public terms, and may claim any unbound principal identity, but cannot recover private keys held by uncompromised principals; and (iii) the \emph{controlled-implementation adversary} in \texttt{tests/test\_v0\_3\_adversary.py} and \texttt{tests/test\_v0\_4\_proof\_obligations.py}, which mounts each enumerated attack against the real Python implementation.
+
+We assume Ed25519 is EUF-CMA secure, Argon2id is preimage- and collision-resistant for the chosen parameters, AES-256-GCM is IND-CCA2 secure, SHA-256 is collision-resistant, the verifier's process clock is monotonic to within the configured replay window, and \texttt{authorize\_action} is invoked atomically with respect to its capability store, revocation registry, and replay cache.
+
+\subsection{What is proven and what is not}
+\textbf{Bounded-proven:} C1, C2, C3, C7 by TLC over the bounded domain in \texttt{formal/MC.cfg} (11{,}601 distinct states, 9 invariants, no error). \textbf{Symbolic-modeled but not yet run:} C1, C2, C3, C4, C6 are encoded as Tamarin lemmas in \texttt{formal/tamarin/sifr\_core.spthy}; promotion to \emph{symbolic-proven} requires a Tamarin Prover installation, which is not present in the v0.4 reference environment and is therefore an explicit residual. \textbf{Tested:} all seven claims have positive and adversarial implementation tests; the v0.4 proof-obligation suite adds 20 tests with at least one positive and one negative case per claim. \textbf{Assumed:} cryptographic strength of the underlying primitives, single-process atomicity of the verifier, monotone bounded-skew clocks. \textbf{Future:} liveness; refinement of \texttt{formal/sifr\_capability.tla} to the Python implementation; lifting bounded TLC results to unbounded constants; a real-network or multi-host network adversary; full W3C VC compliance; arbitrary-untrusted-code WASM safety.
+
+\subsection{What this section does NOT claim}
+We do not claim full cryptographic security; we do not claim production-deployment readiness; we do not claim that the running code is a refinement of the TLA+ specification (it is empirically tested, not formally refined); we do not claim that QUIC's security properties extend beyond the standard TLS/QUIC assumptions; we do not claim arbitrary-untrusted-code WASM isolation; we do not claim symbolic-proven status for any lemma in \texttt{formal/tamarin/sifr\_core.spthy} until the reproduction script reports a successful Tamarin run.
+
 \section{Discussion}
 The implementation demonstrates that a compact vertical slice can bind communication semantics, signatures, capabilities, tool execution, and audit lineage. The central value of SIFR is that the protocol claim is executable and testable: the demo can be run, frames can be tampered with, grants can be expired, budgets can be exceeded, DAG parents can be removed, figures can be regenerated, and the resulting behavior can be inspected.
 

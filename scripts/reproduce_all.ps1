@@ -70,6 +70,22 @@ Step "6/9 Regenerate figures"
 if ($LASTEXITCODE -ne 0) { FailOut "figure regeneration failed" }
 Ok "figures regenerated"
 
+Step "7b. Symbolic protocol model"
+$tamarin = (Get-Command tamarin-prover -ErrorAction SilentlyContinue).Source
+$proverif = (Get-Command proverif -ErrorAction SilentlyContinue).Source
+if ($tamarin) {
+    Write-Host "running Tamarin against formal/tamarin/sifr_core.spthy ..."
+    & $tamarin --prove formal/tamarin/sifr_core.spthy > formal/output/tamarin_output.txt 2>&1
+    if ($LASTEXITCODE -eq 0) { Ok "Tamarin: lemmas proven" } else { Write-Host "FAIL: Tamarin lemma did not prove." -ForegroundColor Red }
+} elseif ($proverif -and (Test-Path "formal/proverif/sifr_core.pv")) {
+    & $proverif "formal/proverif/sifr_core.pv" > formal/output/proverif_output.txt 2>&1
+} else {
+    Write-Host "INFO: symbolic proof tool missing"
+    Write-Host "      Install Tamarin (https://tamarin-prover.com/) or ProVerif"
+    Write-Host "      to verify formal/tamarin/sifr_core.spthy."
+    Write-Host "      v0.4 quality gate item 'symbolic model run' will read NO."
+}
+
 Step "7/9 Run TLC against v0.3 model"
 New-Item -Force -ItemType Directory -Path formal\output | Out-Null
 & $java -XX:+UseParallelGC -cp $env:TLA_TOOLS_PATH tlc2.TLC `

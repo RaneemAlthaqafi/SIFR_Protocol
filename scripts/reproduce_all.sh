@@ -96,6 +96,28 @@ grep -q "No error has been found" formal/output/tlc_output.txt || \
 python scripts/refresh_formal_metadata.py || err "could not refresh formal metadata"
 ok "TLC verified, metadata refreshed"
 
+# ---------- 7b. Symbolic protocol model (Tamarin / ProVerif) ----------
+step "7b. Symbolic protocol model"
+SYMBOLIC_OK=0
+if command -v tamarin-prover >/dev/null 2>&1; then
+    echo "running Tamarin against formal/tamarin/sifr_core.spthy ..."
+    if tamarin-prover --prove formal/tamarin/sifr_core.spthy > formal/output/tamarin_output.txt 2>&1; then
+        ok "Tamarin: lemmas proven (see formal/output/tamarin_output.txt)"
+        SYMBOLIC_OK=1
+    else
+        echo "FAIL: Tamarin lemma did not prove. See formal/output/tamarin_output.txt" >&2
+        SYMBOLIC_OK=0
+    fi
+elif command -v proverif >/dev/null 2>&1 && [ -f formal/proverif/sifr_core.pv ]; then
+    proverif formal/proverif/sifr_core.pv > formal/output/proverif_output.txt 2>&1 || \
+        echo "FAIL: ProVerif rejected sifr_core.pv" >&2
+else
+    echo "INFO: symbolic proof tool missing"
+    echo "      Install Tamarin (https://tamarin-prover.com/) or ProVerif"
+    echo "      to verify formal/tamarin/sifr_core.spthy."
+    echo "      v0.4 quality gate item 'symbolic model run' will read NO."
+fi
+
 # ---------- 8. artifact verification ----------
 step "8/9 Verify required artifacts"
 REQUIRED=(

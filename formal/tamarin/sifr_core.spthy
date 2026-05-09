@@ -1,0 +1,164 @@
+/*
+ * SIFR v0.4 symbolic protocol model (Tamarin).
+ *
+ * Status: WRITTEN, NOT YET PROVEN.
+ * Tamarin Prover is not installed in the SIFR v0.4 reference environment.
+ * Running this model would require:
+ *   apt-get install tamarin-prover    (Linux/WSL)
+ *   or `brew install tamarin-prover`  (macOS)
+ *   or build from source: https://tamarin-prover.com/
+ *
+ * After installation:
+ *   tamarin-prover --prove formal/tamarin/sifr_core.spthy
+ *
+ * Until that is run, the lemmas below have status `symbolic-modeled`,
+ * not `symbolic-proven`. v0.4 is therefore NOT proof-grade ready.
+ *
+ * Adversary model: Dolev-Yao. The attacker observes all wire messages,
+ * synthesises new messages by composing public terms with public-key
+ * cryptography, and may claim any unbound principal identity. The
+ * attacker does NOT have access to private keys held by uncompromised
+ * principals.
+ */
+
+theory sifr_core
+begin
+
+builtins: signing, hashing
+
+/*
+ * Key registration: a principal A generates a fresh signing keypair
+ * and publishes the public key. The private key is sk(A); the public
+ * key is pk(A). This abstracts the SIFR DID/keystore layer.
+ */
+rule Register_Key:
+  [ Fr(~sk) ]
+  --[ KeyGen($A, ~sk) ]->
+  [ !Pk($A, pk(~sk)), !Sk($A, ~sk), Out(pk(~sk)) ]
+
+/*
+ * Issue a capability grant. Issuer I signs (issuer, subject, action,
+ * cap_id) under sk(I). The grant is published to the verifier and the
+ * subject.
+ */
+rule Issue_Grant:
+  let grant_body = <'grant', $I, $S, $action, ~cap_id>
+      grant_sig  = sign(grant_body, ~ski)
+  in
+  [ !Sk($I, ~ski), Fr(~cap_id) ]
+  --[ Issued($I, $S, $action, ~cap_id) ]->
+  [ Out(<grant_body, grant_sig>),
+    !Grant($I, $S, $action, ~cap_id, grant_sig) ]
+
+/*
+ * Revoke a capability. Issuer I signs (revoke, cap_id).
+ */
+rule Revoke_Grant:
+  let revoke_body = <'revoke', $I, ~cap_id>
+      revoke_sig  = sign(revoke_body, ~ski)
+  in
+  [ !Sk($I, ~ski), !Grant($I, $S, $action, ~cap_id, sig) ]
+  --[ Revoked($I, ~cap_id) ]->
+  [ !Revocation($I, ~cap_id), Out(<revoke_body, revoke_sig>) ]
+
+/*
+ * Subject sends a signed action message referencing the cap_id.
+ */
+rule Send_Action:
+  let action_body = <'action', $S, $action, ~msg_id, ~cap_id>
+      action_sig  = sign(action_body, ~sks)
+  in
+  [ !Sk($S, ~sks), !Grant($I, $S, $action, ~cap_id, gsig), Fr(~msg_id) ]
+  --[ Sent($S, $action, ~msg_id, ~cap_id) ]->
+  [ Out(<action_body, action_sig>),
+    !PendingAction($S, $action, ~msg_id, ~cap_id, action_sig) ]
+
+/*
+ * Verifier accepts an action. Captures the SIFR authorize_action
+ * sequence: signature verify, replay check, revocation check, action
+ * membership, subject match.
+ */
+rule Accept_Action:
+  let action_body = <'action', $S, $action, ~msg_id, ~cap_id>
+      grant_body  = <'grant', $I, $S, $action, ~cap_id>
+  in
+  [ !Pk($S, pubS),
+    !Pk($I, pubI),
+    !Grant($I, $S, $action, ~cap_id, gsig),
+    !PendingAction($S, $action, ~msg_id, ~cap_id, action_sig),
+    In(<action_body, action_sig>) ]
+  --[ Accepted($I, $S, $action, ~msg_id, ~cap_id),
+      NotRevoked($I, ~cap_id),
+      Eq(verify(action_sig, action_body, pubS), true),
+      Eq(verify(gsig, grant_body, pubI), true) ]->
+  [ !Accepted($S, $action, ~msg_id, ~cap_id) ]
+
+/*
+ * Tool execution must be preceded by Accept_Action.
+ */
+rule Tool_Execute:
+  [ !Accepted($S, $action, ~msg_id, ~cap_id) ]
+  --[ ToolRun($S, $action, ~msg_id, ~cap_id) ]->
+  [ ]
+
+/*
+ * Restriction: the verifier rejects accepting an action whose
+ * capability is already revoked.
+ */
+restriction not_after_revoke:
+  "All I cap #i #j .
+     ( Revoked(I, cap) @ #i & NotRevoked(I, cap) @ #j ) ==> #j < #i"
+
+restriction equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+
+/* ===================== Lemmas ===================== */
+
+/*
+ * Authenticity: if the verifier accepts an action attributed to S,
+ * then either S sent it, or S's signing key has been compromised.
+ * Compromise is not modeled in this baseline; an extension would
+ * add a Compromise rule and weaken the lemma accordingly.
+ */
+lemma authentication:
+  "All I S act m c #i.
+     Accepted(I, S, act, m, c) @ #i
+     ==> ( Ex #j. j < i & Sent(S, act, m, c) @ #j )"
+
+/*
+ * Authorization: every accepted action has an issuing grant.
+ */
+lemma authorization_required:
+  "All I S act m c #i.
+     Accepted(I, S, act, m, c) @ #i
+     ==> ( Ex #j. j < i & Issued(I, S, act, c) @ #j )"
+
+/*
+ * Replay resistance: the same (subject, message_id, capability) is
+ * not accepted twice in any execution.
+ */
+lemma replay_resistance:
+  "All I S act m c #i #j.
+     Accepted(I, S, act, m, c) @ #i &
+     Accepted(I, S, act, m, c) @ #j
+     ==> #i = #j"
+
+/*
+ * Revocation safety: an action is not accepted after the issuer has
+ * revoked the capability used.
+ */
+lemma revocation_safety:
+  "All I S act m c #r #a.
+     Revoked(I, c) @ #r & Accepted(I, S, act, m, c) @ #a
+     ==> #a < #r"
+
+/*
+ * Tool safety: tool execution implies a prior Accept_Action.
+ */
+lemma tool_safety:
+  "All S act m c #t.
+     ToolRun(S, act, m, c) @ #t
+     ==> ( Ex I #a. a < t & Accepted(I, S, act, m, c) @ #a )"
+
+end
