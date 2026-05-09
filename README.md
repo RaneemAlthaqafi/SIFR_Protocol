@@ -6,8 +6,7 @@ The core idea is simple:
 
 > An AI-agent action should not be "some JSON or text sent over HTTP." It should be a signed typed frame, authorized by a constrained capability, checked for replay and revocation, executed only after verification, and recorded in an audit DAG.
 
-SIFR is intended for the era of agentic services, where AI agents discover tools, delegate tasks, call services, and coordinate with other agents. The artifact is built to support an ICWS/LNCS-style research paper on secure, verifiable AI-agent service communication.
-
+SIFR is intended for the era of agentic services, where AI agents discover tools, delegate tasks, call services, and coordinate with other agents.
 ## What SIFR Implements
 
 - Canonical signed SIFR frames using Ed25519.
