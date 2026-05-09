@@ -4,10 +4,10 @@
   "java_version": "OpenJDK 17.0.10 (Microsoft)",
   "config": "MC.cfg",
   "flags": "-workers auto -deadlock",
-  "timestamp_utc": "2026-05-09T01:06:21Z",
+  "timestamp_utc": "2026-05-09T01:50:42Z",
   "distinct_states": 11601,
   "depth": 7,
-  "duration_s": 1,
+  "duration_s": 0,
   "result": "Model checking completed. No error has been found.",
   "invariants_checked": [
     "TypeInvariant",

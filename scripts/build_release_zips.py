@@ -1,19 +1,23 @@
-"""Build the v0.3 release zips:
-  - sifr-v0.3-research-artifact.zip   (full artifact for review)
-  - sifr-v0.3-overleaf-ready.zip      (paper sources + figures only)
+"""Build the v0.3.x release zips:
+  - sifr-{VERSION}-research-artifact.zip   (full artifact for review)
+  - sifr-{VERSION}-overleaf-ready.zip      (paper sources + figures only)
+
+Version is taken from $SIFR_RELEASE_VERSION (default: v0.3.1).
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-ARTIFACT_ZIP = REPO / "sifr-v0.3-research-artifact.zip"
-OVERLEAF_ZIP = REPO / "sifr-v0.3-overleaf-ready.zip"
+RELEASE_VERSION = os.environ.get("SIFR_RELEASE_VERSION", "v0.3.1")
+ARTIFACT_ZIP = REPO / f"sifr-{RELEASE_VERSION}-research-artifact.zip"
+OVERLEAF_ZIP = REPO / f"sifr-{RELEASE_VERSION}-overleaf-ready.zip"
 
 # What goes into the research artifact zip (relative to repo root).
 ARTIFACT_INCLUDE = [
@@ -102,7 +106,7 @@ def build_zip(name: str, paths: list[Path], zip_path: Path) -> dict:
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         for p in sorted(paths):
             arc = p.relative_to(REPO).as_posix()
-            z.write(p, arcname=f"sifr-v0.3/{arc}")
+            z.write(p, arcname=f"sifr-{RELEASE_VERSION}/{arc}")
     return {
         "zip": zip_path.name,
         "sha256": sha256(zip_path),
@@ -119,9 +123,9 @@ def main() -> None:
     ovl = build_zip("overleaf", overleaf_files, OVERLEAF_ZIP)
 
     manifest = {
-        "version": "v0.3",
+        "version": RELEASE_VERSION,
         "git_commit": git("rev-parse", "HEAD"),
-        "git_describe": git("describe", "--always", "--dirty", "--tags"),
+        "git_describe": git("describe", "--always", "--tags"),
         "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "artifact": art,
         "overleaf": ovl,

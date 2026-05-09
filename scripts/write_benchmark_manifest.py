@@ -54,7 +54,7 @@ def main() -> None:
         "version": VERSION,
         "command": "scripts/run_all_benchmarks.sh",
         "git_commit": git("rev-parse", "HEAD"),
-        "git_describe": git("describe", "--always", "--dirty", "--tags"),
+        "git_describe": git("describe", "--always", "--tags"),
         "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "os": f"{platform.system()} {platform.release()}",
         "python": platform.python_version(),

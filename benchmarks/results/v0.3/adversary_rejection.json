@@ -6,7 +6,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 445.1,
+    "latency_us": 428.7,
     "passed": true
   },
   {
@@ -16,7 +16,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 326.1,
+    "latency_us": 235.1,
     "passed": true
   },
   {
@@ -26,7 +26,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 374.5,
+    "latency_us": 411.9,
     "passed": true
   },
   {
@@ -36,7 +36,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 404.9,
+    "latency_us": 409.3,
     "passed": true
   },
   {
@@ -46,7 +46,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 595.2,
+    "latency_us": 410.6,
     "passed": true
   },
   {
@@ -56,7 +56,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 269.9,
+    "latency_us": 255.9,
     "passed": true
   },
   {
@@ -66,7 +66,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 351.4,
+    "latency_us": 581.0,
     "passed": true
   },
   {
@@ -76,7 +76,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 302.4,
+    "latency_us": 402.0,
     "passed": true
   },
   {
@@ -86,7 +86,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 274.9,
+    "latency_us": 268.8,
     "passed": true
   },
   {
@@ -96,7 +96,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 350.2,
+    "latency_us": 503.0,
     "passed": true
   },
   {
@@ -106,7 +106,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 352.0,
+    "latency_us": 483.0,
     "passed": true
   },
   {
@@ -116,7 +116,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 431.4,
+    "latency_us": 541.9,
     "passed": true
   },
   {
@@ -126,7 +126,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 1631.2,
+    "latency_us": 1568.3,
     "passed": true
   },
   {
@@ -136,7 +136,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 1613.5,
+    "latency_us": 1436.9,
     "passed": true
   },
   {
@@ -146,7 +146,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 489.4,
+    "latency_us": 537.6,
     "passed": true
   },
   {
@@ -156,7 +156,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 464.7,
+    "latency_us": 417.6,
     "passed": true
   },
   {
@@ -166,7 +166,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 520.0,
+    "latency_us": 457.5,
     "passed": true
   },
   {
@@ -176,7 +176,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 226.2,
+    "latency_us": 270.2,
     "passed": true
   },
   {
@@ -186,7 +186,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 332.0,
+    "latency_us": 371.5,
     "passed": true
   },
   {
@@ -196,7 +196,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 297.3,
+    "latency_us": 348.1,
     "passed": true
   },
   {
@@ -206,7 +206,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 477.6,
+    "latency_us": 453.8,
     "passed": true
   },
   {
@@ -216,7 +216,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 1162.1,
+    "latency_us": 956.2,
     "passed": true
   },
   {
@@ -226,7 +226,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 833.4,
+    "latency_us": 571.7,
     "passed": true
   },
   {
@@ -236,7 +236,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 260.0,
+    "latency_us": 251.0,
     "passed": true
   },
   {
@@ -246,7 +246,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 231.9,
+    "latency_us": 217.4,
     "passed": true
   },
   {
@@ -256,7 +256,7 @@
     "test_file": "tests/test_v0_3_adversary.py",
     "reached_wasm": false,
     "actual_error": "_passed_",
-    "latency_us": 240.2,
+    "latency_us": 228.7,
     "passed": true
   },
   {

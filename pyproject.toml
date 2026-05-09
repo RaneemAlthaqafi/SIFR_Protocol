@@ -3,9 +3,9 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sifr-v0-research-package"
-version = "0.2.0-dev"
-description = "SIFR v0.2 research artifact: signed, capability-checked AI-agent frames with DID resolution, capability credentials, revocation, replay protection, QUIC transport, WASM tool isolation, and a TLA+ formal model."
+name = "sifr"
+version = "0.3.1"
+description = "SIFR v0.3 research artifact: signed typed agent frames with DID resolution, VC-inspired capability credentials, revocation, replay protection, QUIC transport, WASM tool isolation, and a TLA+ formal model."
 requires-python = ">=3.10"
 dependencies = [
     "cryptography>=42.0.0",
@@ -23,6 +23,23 @@ dev = [
     "pytest>=8.0.0",
     "matplotlib>=3.8.0",
     "psutil>=5.9.0",
+]
+
+# Only the `sifr/` Python package is shipped. Sibling top-level
+# directories (tests, paper, docs, formal, review, benchmarks,
+# scripts, docker, wasm) are repository assets, not Python packages.
+[tool.setuptools.packages.find]
+include = ["sifr*"]
+exclude = [
+    "tests*",
+    "paper*",
+    "docs*",
+    "formal*",
+    "review*",
+    "benchmarks*",
+    "scripts*",
+    "docker*",
+    "wasm*",
 ]
 
 [tool.pytest.ini_options]
