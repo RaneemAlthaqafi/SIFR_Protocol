@@ -1,0 +1,56 @@
+# Two-container, two-network QUIC harness.
+#
+# Each container lives on its own bridge network; a third bridge ("trunk")
+# carries traffic between them. NetEm is applied on the trunk-facing
+# interface of the client container (eth1) so impairment affects the path
+# between containers, not loopback.
+#
+# Run via:
+#   docker compose -f docker/compose_quic_two_networks.yml up --build
+# with environment variables set to choose a profile.
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.quic_node
+    image: sifr_quic_node:v0.5
+    container_name: sifr_quic_server_2net
+    environment:
+      SIFR_NODE_ROLE: server
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - server_net
+      - trunk_net
+
+  client:
+    image: sifr_quic_node:v0.5
+    container_name: sifr_quic_client_2net
+    depends_on:
+      - server
+    environment:
+      SIFR_NODE_ROLE: client
+      SIFR_PEER_HOST: server
+      SIFR_PEER_PORT: "4433"
+      SIFR_BENCH_N: "${SIFR_BENCH_N:-200}"
+      SIFR_BENCH_LABEL: "${SIFR_BENCH_LABEL:-2net_baseline}"
+      SIFR_NETEM_DELAY_MS: "${SIFR_NETEM_DELAY_MS:-}"
+      SIFR_NETEM_JITTER_MS: "${SIFR_NETEM_JITTER_MS:-}"
+      SIFR_NETEM_LOSS_PCT: "${SIFR_NETEM_LOSS_PCT:-}"
+      SIFR_NETEM_RATE_KBIT: "${SIFR_NETEM_RATE_KBIT:-}"
+      SIFR_NETEM_IFACE: eth1   # apply impairment on the trunk-facing iface
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./out:/out
+    networks:
+      - client_net
+      - trunk_net
+
+networks:
+  server_net:
+    driver: bridge
+  client_net:
+    driver: bridge
+  trunk_net:
+    driver: bridge

@@ -16,7 +16,7 @@ SIFR is intended for the era of agentic services, where AI agents discover tools
 - Replay protection keyed by `(sender_id, session_id, message_id)`.
 - Signed capability revocation registry.
 - DID-style key lookup for `did:web` and local `did:sifr`.
-- VC-inspired capability credentials with mutation detection.
+- SIFR Capability Credentials with mutation detection and a SIFRStatusList2021 bitmap.
 - Content-addressed audit DAG with tamper and missing-parent detection.
 - Local transport and QUIC transport through `aioquic`.
 - WASM calculator execution through `wasmtime` with no WASI imports and fuel limits.
@@ -40,10 +40,18 @@ SIFR is a proof-carrying research artifact. Claims are mapped to code, tests, TL
 
 Current verification summary:
 
-- `190` Python tests pass with `SIFR_TLC_FROZEN=1`.
+- `274` Python tests pass with `SIFR_TLC_FROZEN=1` (v0.5; up from 190 in v0.4).
 - `30` strict adversarial cases reject unauthorized or malformed behavior.
-- TLC verifies `9` invariants over `11,601` states.
+- TLC verifies `9` invariants over `11,601` states (bounded-proven).
+- Apalache configuration shipped (`formal/apalache.cfg`) for operator-runnable
+  symbolic bounded re-checking by reviewers with the toolchain.
 - Tamarin Prover verifies `5/5` symbolic lemmas with zero wellformedness warnings.
+- Runtime trace conformance (`tests/test_formal_trace_conformance.py`) re-checks every
+  TLA+ invariant over Python-emitted traces, plus 9 counterexample traces to
+  prove the checker is sensitive (trace-checked).
+- Crypto vectors validated: RFC 8032 Ed25519 (TEST 1/2/3), FIPS 180-4 SHA-256
+  short and 1M-byte vectors, NIST SP 800-38D AES-GCM Test Cases 1 & 3,
+  RFC 9106 Argon2id reference vector.
 - GitHub Actions passes on Ubuntu and Windows for Python 3.11 and 3.12.
 
 ## Quickstart
@@ -153,20 +161,36 @@ ICWS 2026 requires LNCS Proceedings style. The paper uses:
 
 Use Overleaf's Springer LNCS template or upload this repository's `paper/` folder into an LNCS project.
 
-## Honest Non-Claims
+## Honest Non-Claims (v0.5)
 
-SIFR is a research artifact, not a production standard.
+SIFR is a research artifact, not a production standard. v0.5 narrows several
+v0.4 limitations; the full closed/narrowed/remaining table lives in
+[`docs/limitations_v0_5.md`](docs/limitations_v0_5.md). The remaining honest
+non-claims are:
 
-It does not claim:
-
-- Full W3C Verifiable Credential compliance.
-- HSM-grade key isolation or enterprise PKI.
-- Distributed revocation or distributed replay protection.
-- Arbitrary untrusted-code WASM safety.
-- Internet-scale or multi-host QUIC evaluation.
-- A cryptographic proof of Ed25519, SHA-256, AES-GCM, or Argon2id.
-- A full implementation-refinement proof from Python to TLA+/Tamarin.
-- Production-deployment readiness.
+- **Cryptography.** SIFR validates integration against RFC 8032, FIPS 180-4,
+  NIST SP 800-38D, and RFC 9106 vectors plus misuse-resistance tests, but
+  does **not** prove primitive security. See `docs/crypto_assumptions.md`.
+- **Credentials.** SIFR ships *SIFR Capability Credentials* with a
+  `SIFRStatusList2021` bitmap. NOT W3C VC compliant; no JSON-LD loader; no
+  URDNA2015. See `docs/credential_model.md`.
+- **Identity.** Supports `did:web`, `did:key`, and local `did:sifr` for
+  Ed25519 in `publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk`.
+  Other curves and other DID methods are out of scope.
+- **Replay/revocation.** Process-shared via SQLite-WAL replay and
+  signed-JSONL revocation. **Not** Byzantine consensus and **not** global
+  revocation propagation. See `docs/revocation_replay_scope.md`.
+- **WASM sandbox.** No-WASI, fuel-bounded, memory-capped, fresh-store policy
+  with seven adversarial fixtures. **Not** arbitrary-untrusted-code-safe;
+  no side-channel resistance; not multi-tenant. See `docs/wasm_sandbox.md`.
+- **QUIC network.** Single-host emulated impairment over a two-bridge
+  Compose stack; seven NetEm profiles. **Not** Internet-scale, multi-host,
+  NAT-traversal, or mobile.
+- **Formal evidence.** Bounded-proven (TLC), symbolic-proven (Tamarin),
+  trace-checked Python conformance. **No** TLAPS/Coq inductive proof; no
+  implementation-refinement proof. See `docs/formal_scope.md`.
+- HSM-grade key isolation, enterprise PKI, and production-deployment
+  readiness remain out of scope.
 
 ## Key Files
 

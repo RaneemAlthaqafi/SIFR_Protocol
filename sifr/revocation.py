@@ -91,6 +91,21 @@ class RevocationRegistry:
     def is_revoked(self, capability_id: str) -> Optional[dict[str, Any]]:
         return self._entries.get(capability_id)
 
+    def reload(self) -> None:
+        """Re-read the on-disk JSONL log into the in-memory map.
+
+        Useful when another process has appended revocations: this verifier
+        instance was started before that write, so its cache is stale.
+        Signature verification is performed for every entry, so a tampered
+        log is rejected at reload time rather than silently accepted.
+        """
+        if self.store_path is None:
+            return
+        # Drop in-memory cache and re-load from disk.
+        self._entries = {}
+        if self.store_path.exists():
+            self._load()
+
     def export(self) -> list[dict[str, Any]]:
         return list(self._entries.values())
 

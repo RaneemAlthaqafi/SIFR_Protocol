@@ -1,21 +1,28 @@
 """DID resolution for SIFR.
 
-Two methods are implemented:
+Three methods are implemented:
 - did:web (preferred) — fetches DID documents over HTTP/HTTPS.
+- did:key — pure-cryptographic, derives the document from the identifier.
 - did:sifr (local fallback) — reads documents from a local directory.
 
-Both resolvers implement the KeyResolver Protocol from keyring_iface, so they
+All resolvers implement the KeyResolver Protocol from keyring_iface, so they
 can be passed directly to crypto.verify_message and capabilities.authorize_action.
 
-This package does NOT claim full W3C DID interoperability. It supports
-verificationMethod entries with type Ed25519VerificationKey2020 (or 2018) using
-the publicKeyBase64 field. Other key types and JSON-LD context processing are
-out of scope for v0.2. See docs/did_method.md.
+This package does NOT claim full W3C DID interoperability. It supports the
+following Ed25519 verification-method shapes:
+
+  - publicKeyBase64 + type Ed25519VerificationKey2018 / 2020
+  - publicKeyMultibase + type Ed25519VerificationKey2020
+  - publicKeyJwk + type JsonWebKey2020 (kty=OKP, crv=Ed25519)
+
+Other key types, JSON-LD context expansion, and URDNA2015 canonicalization
+are out of scope. See docs/did_method.md.
 """
 from __future__ import annotations
 
+import base64
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -23,6 +30,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from ..crypto import public_key_from_b64
 from ..errors import SIFRError
 from ..keyring_iface import RevocationInfo
+
+from .encodings import (
+    DidEncodingError,
+    ed25519_pub_from_did_key,
+    ed25519_pub_from_jwk,
+    ed25519_pub_from_multibase,
+    ed25519_pub_to_multibase,
+)
 
 __all__ = [
     "DidError",
@@ -38,8 +53,15 @@ __all__ = [
     "SUPPORTED_VERIFICATION_TYPES",
 ]
 
+# Type names accepted in verificationMethod entries. We intentionally accept
+# both the 2018 and 2020 Ed25519 W3C suite names as well as JsonWebKey2020
+# (which is the suite that carries publicKeyJwk for OKP/Ed25519).
 SUPPORTED_VERIFICATION_TYPES = frozenset(
-    {"Ed25519VerificationKey2020", "Ed25519VerificationKey2018"}
+    {
+        "Ed25519VerificationKey2020",
+        "Ed25519VerificationKey2018",
+        "JsonWebKey2020",
+    }
 )
 
 
@@ -61,13 +83,31 @@ class DidKeyMismatch(DidError):
 
 @dataclass(frozen=True)
 class VerificationMethod:
+    """A parsed Ed25519 verification method.
+
+    Exactly one of the public_key_* fields is non-empty after parsing; we
+    keep all three for round-tripping and traceability. The `key_format`
+    field records which DID-Core encoding was used in the source document.
+    """
+
     id: str
     type: str
     controller: str
-    public_key_b64: str
+    public_key_b64: str = ""
+    public_key_multibase: str = ""
+    public_key_jwk: Optional[dict] = None
+    key_format: str = "publicKeyBase64"
 
     def to_public_key(self) -> Ed25519PublicKey:
-        return public_key_from_b64(self.public_key_b64)
+        if self.key_format == "publicKeyBase64":
+            return public_key_from_b64(self.public_key_b64)
+        if self.key_format == "publicKeyMultibase":
+            return ed25519_pub_from_multibase(self.public_key_multibase)
+        if self.key_format == "publicKeyJwk":
+            if self.public_key_jwk is None:
+                raise DidDocumentError("publicKeyJwk format with no JWK body")
+            return ed25519_pub_from_jwk(self.public_key_jwk)
+        raise DidDocumentError(f"unsupported key_format: {self.key_format!r}")
 
 
 @dataclass(frozen=True)
@@ -92,6 +132,96 @@ def parse_kid(kid: str) -> tuple[str, str]:
     return did, kid
 
 
+def _parse_verification_method_entry(m: dict) -> VerificationMethod:
+    if not isinstance(m, dict):
+        raise DidDocumentError("verificationMethod entry must be an object")
+    method_id = m.get("id")
+    method_type = m.get("type")
+    controller = m.get("controller")
+    if not isinstance(method_id, str) or not isinstance(method_type, str):
+        raise DidDocumentError(f"verificationMethod missing id or type: {m}")
+    if not isinstance(controller, str):
+        raise DidDocumentError(f"verificationMethod missing controller: {m}")
+    if method_type not in SUPPORTED_VERIFICATION_TYPES:
+        raise DidDocumentError(f"unsupported verificationMethod type: {method_type}")
+
+    has_b64 = isinstance(m.get("publicKeyBase64"), str)
+    has_mb = isinstance(m.get("publicKeyMultibase"), str)
+    has_jwk = isinstance(m.get("publicKeyJwk"), dict)
+    formats_present = sum(1 for x in (has_b64, has_mb, has_jwk) if x)
+    if formats_present == 0:
+        raise DidDocumentError(
+            f"verificationMethod must carry one of publicKeyBase64, "
+            f"publicKeyMultibase, or publicKeyJwk: {m}"
+        )
+    if formats_present > 1:
+        raise DidDocumentError(
+            f"verificationMethod must carry exactly one of publicKeyBase64, "
+            f"publicKeyMultibase, or publicKeyJwk; got {formats_present}: {m}"
+        )
+
+    if has_b64:
+        if method_type == "JsonWebKey2020":
+            raise DidDocumentError(
+                "JsonWebKey2020 must carry publicKeyJwk, not publicKeyBase64"
+            )
+        # validate decodes and is the right length to fail fast.
+        b64 = m["publicKeyBase64"]
+        try:
+            raw = base64.b64decode(b64, validate=True)
+        except Exception as exc:
+            raise DidDocumentError(f"publicKeyBase64 not valid base64: {exc}") from exc
+        if len(raw) != 32:
+            raise DidDocumentError(
+                f"Ed25519 publicKeyBase64 must decode to 32 bytes, got {len(raw)}"
+            )
+        return VerificationMethod(
+            id=method_id,
+            type=method_type,
+            controller=controller,
+            public_key_b64=b64,
+            key_format="publicKeyBase64",
+        )
+
+    if has_mb:
+        if method_type not in ("Ed25519VerificationKey2020",):
+            raise DidDocumentError(
+                f"publicKeyMultibase requires Ed25519VerificationKey2020, "
+                f"got {method_type!r}"
+            )
+        mb = m["publicKeyMultibase"]
+        # Validate up-front so a malformed key raises at parse time.
+        try:
+            ed25519_pub_from_multibase(mb)
+        except DidEncodingError as exc:
+            raise DidDocumentError(f"invalid publicKeyMultibase: {exc}") from exc
+        return VerificationMethod(
+            id=method_id,
+            type=method_type,
+            controller=controller,
+            public_key_multibase=mb,
+            key_format="publicKeyMultibase",
+        )
+
+    # has_jwk
+    if method_type != "JsonWebKey2020":
+        raise DidDocumentError(
+            f"publicKeyJwk requires JsonWebKey2020, got {method_type!r}"
+        )
+    jwk = m["publicKeyJwk"]
+    try:
+        ed25519_pub_from_jwk(jwk)
+    except DidEncodingError as exc:
+        raise DidDocumentError(f"invalid publicKeyJwk: {exc}") from exc
+    return VerificationMethod(
+        id=method_id,
+        type=method_type,
+        controller=controller,
+        public_key_jwk=dict(jwk),
+        key_format="publicKeyJwk",
+    )
+
+
 def parse_did_document(raw: object) -> DidDocument:
     if not isinstance(raw, dict):
         raise DidDocumentError("DID document must be a JSON object")
@@ -103,26 +233,7 @@ def parse_did_document(raw: object) -> DidDocument:
         raise DidDocumentError(f"DID document {did} has no verificationMethod")
     methods: list[VerificationMethod] = []
     for m in methods_raw:
-        if not isinstance(m, dict):
-            raise DidDocumentError("verificationMethod entry must be an object")
-        method_id = m.get("id")
-        method_type = m.get("type")
-        controller = m.get("controller")
-        public_key_b64 = m.get("publicKeyBase64")
-        if not isinstance(method_id, str) or not isinstance(method_type, str):
-            raise DidDocumentError(f"verificationMethod missing id or type: {m}")
-        if not isinstance(controller, str) or not isinstance(public_key_b64, str):
-            raise DidDocumentError(f"verificationMethod missing controller or publicKeyBase64: {m}")
-        if method_type not in SUPPORTED_VERIFICATION_TYPES:
-            raise DidDocumentError(f"unsupported verificationMethod type: {method_type}")
-        methods.append(
-            VerificationMethod(
-                id=method_id,
-                type=method_type,
-                controller=controller,
-                public_key_b64=public_key_b64,
-            )
-        )
+        methods.append(_parse_verification_method_entry(m))
     return DidDocument(id=did, verification_methods=tuple(methods))
 
 

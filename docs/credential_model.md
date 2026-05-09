@@ -1,13 +1,36 @@
-# Capability Credentials in SIFR
+# SIFR Capability Credentials
 
-SIFR v0.2 implements **VC-inspired signed credentials**. The data model mirrors the W3C [Verifiable Credentials Data Model 1.1](https://www.w3.org/TR/vc-data-model/) shape, but the implementation does NOT claim VC compliance.
+SIFR ships **SIFR Capability Credentials** — signed authorization tokens
+carrying a capability grant. The data model mirrors the W3C [Verifiable
+Credentials Data Model 1.1](https://www.w3.org/TR/vc-data-model/) shape for
+ergonomic familiarity. The implementation does NOT claim W3C VC compliance.
+
+## Honest scope claim
+
+> SIFR Capability Credentials are signed Ed25519 grants whose JSON body
+> resembles a W3C Verifiable Credential. They are NOT W3C VC compliant: we
+> do not load JSON-LD contexts, we do not perform URDNA2015 RDF
+> canonicalization, and we use a SIFR-specific `SIFRStatusList2021`
+> mechanism that is modeled on but not interoperable with W3C
+> StatusList2021.
+
+The primary type is `SIFRCapabilityCredential`. Issued credentials retain
+`VerifiableCredential` and `CapabilityCredential` in the type array as
+recognizable shape hints — they do NOT signal W3C compliance.
 
 ## Data model
 
 ```json
 {
-    "@context": ["https://www.w3.org/2018/credentials/v1"],
-    "type": ["VerifiableCredential", "CapabilityCredential"],
+    "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://sifr.dev/contexts/sifr-credential-v1"
+    ],
+    "type": [
+        "VerifiableCredential",
+        "CapabilityCredential",
+        "SIFRCapabilityCredential"
+    ],
     "issuer": "did:sifr:alice",
     "issuanceDate": "2026-05-08T13:24:11Z",
     "expirationDate": "2026-05-08T13:34:11Z",
@@ -25,6 +48,13 @@ SIFR v0.2 implements **VC-inspired signed credentials**. The data model mirrors 
             "constraints": {"allow_delegation": false}
         }
     },
+    "credentialStatus": {
+        "id": "https://sifr.dev/lists/alice-revocation#42",
+        "type": "SIFRStatusList2021",
+        "statusPurpose": "revocation",
+        "statusListIndex": 42,
+        "statusListCredential": "https://sifr.dev/lists/alice-revocation"
+    },
     "proof": {
         "type": "Ed25519Signature2020",
         "created": "2026-05-08T13:24:11Z",
@@ -34,6 +64,9 @@ SIFR v0.2 implements **VC-inspired signed credentials**. The data model mirrors 
     }
 }
 ```
+
+The `credentialStatus` field is optional and bound into the proof signature.
+It is interpreted by `sifr.credential_status.StatusList`.
 
 The `credentialSubject.capability` payload is exactly the SIFR `CapabilityGrant` payload from `sifr.capabilities.create_capability_grant`. `credential_to_grant()` extracts it after verification.
 
@@ -51,8 +84,15 @@ The `credentialSubject.capability` payload is exactly the SIFR `CapabilityGrant`
 ## What we explicitly do NOT claim
 
 - W3C VC compliance. The proof is verified using SIFR's plain canonical-JSON canonicalization (`sort_keys=True`, `separators=(",", ":")`, `ensure_ascii=False`), not the W3C-registered URDNA2015 RDF normalization required by the formal `Ed25519Signature2020` proof suite.
-- JSON-LD context handling. We do not load `@context`, do not perform expansion/compaction, and do not enforce the JSON-LD type constraints.
-- Status / revocation list compliance. SIFR uses a separate `RevocationRegistry` for capability revocation. There is no `credentialStatus` field check in `verify_credential`.
+- JSON-LD context handling. We ship a SIFR context document at
+  `docs/contexts/sifr-credential-v1.jsonld` for offline inspection but do
+  not load it, do not perform expansion/compaction, and do not enforce
+  JSON-LD type constraints at runtime.
+- W3C StatusList2021 compliance. SIFR's `SIFRStatusList2021` is a
+  bitmap-based credential-status mechanism modeled on StatusList2021. It
+  uses the same conceptual fields (`statusListIndex`,
+  `statusListCredential`) but does NOT use the StatusList2021 wire format
+  (no GZIP+base64-multibase encoding, no `StatusList2021Credential` type).
 - Holder presentation, schema validation, or `evidence` field handling.
 - Cryptographic suites other than Ed25519.
 

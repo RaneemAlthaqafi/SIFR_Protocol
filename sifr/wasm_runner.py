@@ -72,6 +72,9 @@ _DEFAULT_WASM_DIR = Path(__file__).resolve().parent.parent / "wasm" / "calculato
 
 class WasmToolRunner(SandboxedToolRunner):
     DEFAULT_FUEL = 1_000_000
+    # 16 wasm pages = 1 MiB. Calculator never grows; adversarial modules
+    # asking for hundreds of MiB are denied at memory.grow time.
+    DEFAULT_MEMORY_PAGE_LIMIT = 16
 
     SUPPORTED_TOOLS: dict[str, str] = {
         "tool.calculator.add": "calculator.wat",
@@ -82,14 +85,37 @@ class WasmToolRunner(SandboxedToolRunner):
         *,
         modules_dir: Optional[Path | str] = None,
         fuel: int = DEFAULT_FUEL,
+        memory_page_limit: int = DEFAULT_MEMORY_PAGE_LIMIT,
     ) -> None:
         self._fuel_per_call = fuel
+        self._memory_page_limit = memory_page_limit
         self._modules_dir = Path(modules_dir) if modules_dir is not None else _DEFAULT_WASM_DIR
         config = wasmtime.Config()
         config.consume_fuel = True
+        # Note: we considered enabling wasmtime epoch interruption as a second
+        # preemption channel. Wasmtime's epoch policy traps as soon as the
+        # current epoch crosses the deadline, and a runner that does not bump
+        # epochs externally would trap on the first invocation. Fuel is
+        # sufficient for SIFR's policy: every supported tool is small,
+        # CPU-bounded, and does not need wall-clock preemption.
         self._engine = wasmtime.Engine(config)
         self._modules: dict[str, wasmtime.Module] = {}
         self.last_invocation_evidence: Optional[dict[str, Any]] = None
+
+    def _new_store(self) -> "wasmtime.Store":
+        store = wasmtime.Store(self._engine)
+        store.set_fuel(self._fuel_per_call)
+        # Apply memory cap via Store.set_limits. Cap is in bytes; one wasm
+        # page is 64 KiB. memory.grow will return -1 once the limit is
+        # crossed, and instantiation fails if a module's declared minimum
+        # exceeds the cap.
+        try:
+            store.set_limits(memory_size=self._memory_page_limit * 64 * 1024)
+        except Exception:
+            # If the wasmtime-py build lacks set_limits, fuel remains the
+            # load-bearing isolation lever.
+            pass
+        return store
 
     def _load_module(self, filename: str) -> wasmtime.Module:
         if filename not in self._modules:
@@ -122,8 +148,7 @@ class WasmToolRunner(SandboxedToolRunner):
 
         action_name = "tool.calculator.add"
         module = self._load_module(self.SUPPORTED_TOOLS[action_name])
-        store = wasmtime.Store(self._engine)
-        store.set_fuel(self._fuel_per_call)
+        store = self._new_store()
         try:
             instance = wasmtime.Instance(store, module, [])
         except wasmtime.WasmtimeError as exc:
@@ -159,8 +184,9 @@ class WasmToolRunner(SandboxedToolRunner):
             module = wasmtime.Module(self._engine, wat_or_wasm)
         except wasmtime.WasmtimeError as exc:
             raise WasmToolError(f"compile failed: {exc}") from exc
-        store = wasmtime.Store(self._engine)
-        store.set_fuel(fuel if fuel is not None else self._fuel_per_call)
+        store = self._new_store()
+        if fuel is not None:
+            store.set_fuel(fuel)
         try:
             instance = wasmtime.Instance(store, module, [])
         except wasmtime.WasmtimeError as exc:

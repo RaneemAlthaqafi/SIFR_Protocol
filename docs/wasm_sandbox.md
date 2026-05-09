@@ -1,6 +1,15 @@
 # WASM Tool Isolation
 
-SIFR v0.2 executes tool actions inside a [wasmtime](https://github.com/bytecodealliance/wasmtime) sandbox via `sifr/wasm_runner.py`'s `WasmToolRunner`.
+SIFR executes tool actions inside a [wasmtime](https://github.com/bytecodealliance/wasmtime) sandbox via `sifr/wasm_runner.py`'s `WasmToolRunner`.
+
+## Honest scope claim
+
+> SIFR enforces a no-WASI, fuel-bounded, fresh-store, memory-capped WASM
+> policy tested against the calculator module and a documented set of
+> adversarial fixtures (filesystem, environment, socket, infinite loop,
+> memory-grow abuse, missing-export, unreachable trap). SIFR does NOT
+> claim arbitrary untrusted-code safety, side-channel resistance, or
+> multi-tenant isolation.
 
 ## Sandbox boundary
 
@@ -49,6 +58,24 @@ Modules are committed as `.wat` (WebAssembly text), not `.wasm` (binary). Reason
 
 The cost is a one-time compile per process, amortized at startup.
 
+## Memory limit
+
+`WasmToolRunner` applies a per-call memory cap via `Store.set_limits(memory_size=...)` (default `16 pages = 1 MiB`). When a module attempts `memory.grow(N)` past the cap, wasmtime returns `-1` to the module instead of allocating; instantiation fails if the module's declared minimum exceeds the cap. Verified by `tests/test_wasm_sandbox_hardening.py::test_memory_growth_abuse_denied` against `memory_grow_abuse.wat` which asks for 4096 pages.
+
+## Adversarial fixtures committed in-tree
+
+The following modules live in `tests/fixtures/wasm_modules/` and are exercised on every CI run:
+
+| Fixture | What it attempts | What the runner must do |
+|---|---|---|
+| `fs_attempt.wat` | Imports `wasi_snapshot_preview1.path_open` | Refuse to instantiate |
+| `env_attempt.wat` | Imports `wasi_snapshot_preview1.environ_get` | Refuse to instantiate |
+| `network_attempt.wat` | Imports `wasi_snapshot_preview1.sock_send` | Refuse to instantiate |
+| `looping.wat` | Infinite `(loop $l (br $l))` | Trap on fuel exhaustion |
+| `memory_grow_abuse.wat` | `memory.grow(4096)` (256 MiB) | Return -1 under the memory cap |
+| `trap_unreachable.wat` | `(unreachable)` | Surface `wasmtime.Trap` cleanly |
+| `missing_export.wat` | Missing `add` export | Caller observes `KeyError`, no crash |
+
 ## Limitations
 
 - The runner ships only the calculator module. Adding new tools requires:
@@ -57,7 +84,7 @@ The cost is a one-time compile per process, amortized at startup.
   3. Registering the action name in `WasmToolRunner.SUPPORTED_TOOLS`.
   4. Adding parity tests against a Python reference if behavioral correctness matters.
 - The fuel limit is fixed at construction time. Per-call fuel overrides would be a small extension.
-- The runner does not impose a real wall-clock timeout; fuel is a proxy for compute, not for time. A module performing only fast instructions could run within fuel for many milliseconds. For wall-clock isolation use wasmtime's epoch-interruption API (not enabled in v0.2).
+- The runner does not impose a real wall-clock timeout; fuel is a proxy for compute, not for time. Wasmtime's epoch interruption API is documented in the runner source for callers that need wall-clock preemption — SIFR does not enable it by default because no shipped tool is long-running.
 
 ## What we explicitly do NOT claim
 

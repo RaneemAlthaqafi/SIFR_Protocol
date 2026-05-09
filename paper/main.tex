@@ -30,7 +30,7 @@
 \begin{abstract}
 Agentic AI systems are rapidly becoming service-oriented systems: agents discover tools, call remote capabilities, delegate subtasks, stream observations, and coordinate with other agents. Yet much of today's agent communication is still encoded as free-form text or ad hoc JSON over web-era interfaces. Those carriers are useful, but they do not provide agent-native semantics for typed intent, cryptographic sender binding, delegated authorization, replay resistance, revocation, safe tool invocation, and auditable reasoning lineage. This paper presents SIFR, Secure Interchange for Federated Reasoning, a protocol and artifact for signed, typed, capability-checked communication among AI agents.
 
-SIFR represents agent communication as canonical signed frames, authorizes actions through constrained capability grants, rejects replayed and revoked requests, records content-addressed audit-DAG lineage, and invokes tools only after authorization. The artifact includes a Python implementation, QUIC transport, WASM calculator execution, DID-style key lookup, VC-inspired capability credentials, benchmark scripts, adversarial tests, a bounded TLA+ model, and a Tamarin symbolic model. The evaluated vertical slice runs a two-agent service workflow: hello, capability offer, capability grant, signed action, authorization, tool execution, signed observation, and audit verification. Empirical measurements show a signed action frame of 411 bytes versus a 53-byte plain JSON action, Ed25519 signing at 0.0314 ms, verification at 0.0615 ms, sign+verify+DAG append at 0.1104 ms, QUIC loopback round-trip at 0.42 ms, and Docker/NetEm QUIC behavior under 20 ms delay and 1--5\% loss. The security evidence includes 190 implementation tests, a 30-case adversarial rejection suite, TLC verification of 9 invariants over 11,601 states, and Tamarin verification of five symbolic lemmas: authentication, authorization, replay resistance, revocation safety, and tool-safety. SIFR is not a production deployment claim; rather, it is a proof-carrying research artifact showing how a native protocol for AI-agent services can bind structure, authorization, execution, and audit evidence into one reproducible system.
+SIFR represents agent communication as canonical signed frames, authorizes actions through constrained capability grants, rejects replayed and revoked requests, records content-addressed audit-DAG lineage, and invokes tools only after authorization. The artifact includes a Python implementation, QUIC transport, WASM calculator execution, DID-style key lookup, SIFR Capability Credentials, benchmark scripts, adversarial tests, a bounded TLA+ model, and a Tamarin symbolic model. The evaluated vertical slice runs a two-agent service workflow: hello, capability offer, capability grant, signed action, authorization, tool execution, signed observation, and audit verification. Empirical measurements show a signed action frame of 411 bytes versus a 53-byte plain JSON action, Ed25519 signing at 0.0314 ms, verification at 0.0615 ms, sign+verify+DAG append at 0.1104 ms, QUIC loopback round-trip at 0.42 ms, and Docker/NetEm QUIC behavior under 20 ms delay and 1--5\% loss. The security evidence includes 274 implementation tests, a 30-case adversarial rejection suite, standard cryptographic test vectors, process-shared replay and revocation tests, hardened WASM adversarial fixtures, runtime trace-conformance checks, TLC verification of 9 invariants over 11,601 states, and Tamarin verification of five symbolic lemmas: authentication, authorization, replay resistance, revocation safety, and tool-safety. SIFR is not a production deployment claim; rather, it is a proof-carrying research artifact showing how a native protocol for AI-agent services can bind structure, authorization, execution, and audit evidence into one reproducible system.
 
 \keywords{AI agents \and Web services \and service protocols \and capability security \and formal verification \and Tamarin \and TLA+ \and audit logs}
 \end{abstract}
@@ -68,7 +68,7 @@ The Model Context Protocol (MCP) standardizes how model hosts connect to tools, 
 
 \subsection{Security, Identity, and Provenance}
 
-Zero Trust architecture emphasizes resource-specific, per-request decisions instead of implicit network trust \cite{rose2020zerotrust}. DID Core and Verifiable Credentials specify decentralized identifiers and verifiable claims \cite{w3c2022did,w3c2025vc}. SIFR uses DID-style key binding and VC-inspired capability credentials, but does not claim full W3C VC compliance. Its credential layer signs constrained capability claims over canonical JSON rather than using JSON-LD processing or RDF canonicalization.
+Zero Trust architecture emphasizes resource-specific, per-request decisions instead of implicit network trust \cite{rose2020zerotrust}. DID Core and Verifiable Credentials specify decentralized identifiers and verifiable claims \cite{w3c2022did,w3c2025vc}. SIFR uses DID-style key binding and SIFR Capability Credentials whose JSON shape resembles a Verifiable Credential, but it does not claim W3C VC compliance. Its credential layer signs constrained capability claims over canonical JSON rather than using JSON-LD processing or RDF canonicalization.
 
 Content-addressed structures such as Merkle DAGs support tamper-evident lineage \cite{ipfs2025merkledag}. Supply-chain provenance work such as SLSA motivates reproducible evidence and verifiable artifact metadata \cite{slsa2025spec}. SIFR applies those ideas to agent messages: message CIDs are derived from canonical content and parent links form an audit DAG.
 
@@ -161,7 +161,7 @@ Capabilities & authorization and budgets & \texttt{sifr/capabilities.py} \\
 Replay & message freshness cache & \texttt{sifr/replay.py} \\
 Revocation & signed revocation registry & \texttt{sifr/revocation.py} \\
 DID & key resolution & \texttt{sifr/did/} \\
-Credentials & VC-inspired capability credentials & \texttt{sifr/credentials.py} \\
+Credentials & SIFR Capability Credentials & \texttt{sifr/credentials.py} \\
 Audit & content-addressed lineage & \texttt{sifr/audit\_dag.py} \\
 Transport & local and QUIC backends & \texttt{sifr/transport/} \\
 WASM & bounded calculator execution & \texttt{sifr/wasm\_runner.py} \\
@@ -304,23 +304,149 @@ For ICWS-style Web-service research, the most important implication is that agen
 
 The formal evidence also shapes the protocol design. The Tamarin replay result is a useful example: signatures alone do not prevent replay. The proof requires an accepted-once invariant corresponding to the implementation's replay cache. This makes the cache a first-class security component rather than an optimization.
 
+\section{Cryptographic Assumptions and Test Vectors}
+\label{sec:crypto-assumptions}
+
+SIFR does not prove primitive security from scratch. We name each
+assumption explicitly, cite the standardisation document, and validate
+implementation integration against the standard's published test vectors.
+
+We assume Ed25519~\cite{rfc8032} is existentially unforgeable under chosen
+message attack in the random-oracle model; SHA-256~\cite{fips180-4} is
+collision and second-preimage resistant; AES-256-GCM~\cite{nist80038d} is
+an authenticated cipher under unique-nonce-per-key usage; and
+Argon2id~\cite{rfc9106} resists offline password recovery at the
+parameters specified in RFC 9106 §4. The repository file
+\texttt{docs/crypto\_assumptions.md} states each assumption, the SIFR
+construct that depends on it, and the consequence if the assumption is
+broken.
+
+The test file \texttt{tests/test\_crypto\_vectors.py} runs RFC 8032
+§7.1 Ed25519 vectors (TEST 1, 2, 3), FIPS 180-4 SHA-256 short and
+$10^{6}$-byte vectors, NIST SP 800-38D Test Cases 1 and 3 for AES-GCM,
+and an RFC 9106 reference Argon2id call. Misuse-resistance tests confirm
+that the wrong Ed25519 key fails verification, that a single-bit message
+mutation invalidates the signature, that AES-GCM AAD/ciphertext/tag
+tampering raise \texttt{InvalidTag}, and that Argon2id parameters are
+recorded next to the tag and re-applied at decryption. SIFR's API does
+not auto-generate AES-GCM nonces; nonce uniqueness is documented as a
+caller responsibility, with a regression test that demonstrates the
+keystream-XOR consequence of misuse.
+
+\noindent
+\textbf{Honest claim.} \emph{We do not prove primitive security; we
+validate integration against standard vectors and rely on standard
+cryptographic assumptions.}
+
 \section{Limitations}
 
-SIFR is a research artifact, not a production system. The following limitations are explicit.
+SIFR is a research artifact, not a production system. The following
+limitations are explicit. Each item below is the v0.5 status; see
+Table~\ref{tab:limitations-final} for the closed/narrowed/remaining
+breakdown.
 
-\textbf{Cryptographic assumptions.} Ed25519, SHA-256, Argon2id, and AES-GCM are assumed secure under standard assumptions; their internal security is not proven.
+\textbf{Cryptographic assumptions.} As stated in
+Section~\ref{sec:crypto-assumptions}: SIFR validates integration against
+RFC 8032, FIPS 180-4, NIST SP 800-38D, and RFC 9106 vectors and relies on
+the corresponding standard assumptions. SIFR does not prove primitive
+security.
 
-\textbf{Credential scope.} Credentials are VC-inspired but not W3C VC compliant. JSON-LD context processing, URDNA2015 normalization, and standard credential-status mechanisms are out of scope.
+\textbf{Credential scope.} SIFR Capability Credentials are signed
+Ed25519 grants whose JSON body resembles a W3C Verifiable Credential.
+They are NOT W3C VC compliant: SIFR does not load JSON-LD contexts and
+does not perform URDNA2015 RDF canonicalisation. SIFR ships
+\texttt{SIFRStatusList2021}, a bitmap-based credential-status mechanism
+modelled on but not interoperable with W3C StatusList2021.
 
-\textbf{Identity scope.} The implementation supports \texttt{did:web} and a local \texttt{did:sifr} method with selected Ed25519 key formats, not the full DID ecosystem.
+\textbf{Identity scope.} SIFR supports \texttt{did:web}, \texttt{did:key},
+and local \texttt{did:sifr} for Ed25519 keys encoded as
+\texttt{publicKeyBase64}, \texttt{publicKeyMultibase}, or
+\texttt{publicKeyJwk}. Other curves and other DID methods are out of
+scope.
 
-\textbf{Revocation and replay scope.} Revocation and replay protection are local to the configured verifier state. Distributed revocation, multi-process replay coordination, and consensus are future work.
+\textbf{Revocation and replay scope.} SIFR supports process-shared replay
+through a SQLite-backed verifier state with WAL journaling and a
+\texttt{PRIMARY KEY} uniqueness gate, and process-shared revocation
+through a signed JSONL log re-verified at load time. SIFR does not
+implement Byzantine consensus or global revocation propagation between
+independent verifier deployments.
 
-\textbf{WASM scope.} WASM evidence covers a calculator module and adversarial fixtures. It does not establish arbitrary untrusted-code safety, side-channel resistance, or multi-tenant isolation.
+\textbf{WASM scope.} SIFR enforces a no-WASI, fuel-bounded, fresh-store,
+memory-capped WASM policy tested against the calculator module and a
+documented set of adversarial fixtures (filesystem, environment, socket,
+infinite loop, memory-grow abuse, missing-export, unreachable trap).
+SIFR does not claim arbitrary untrusted-code safety, side-channel
+resistance, or multi-tenant isolation.
 
-\textbf{Network scope.} QUIC is evaluated on localhost and a single-host Docker bridge with NetEm impairment. Multi-host, NAT, mobile, and Internet-scale evaluation are future work.
+\textbf{Network scope.} The v0.5 harness adds a two-bridge Docker Compose
+file, a seven-profile NetEm sweep (baseline, delay-20\,ms,
+delay-100\,ms, loss-1\,\%, loss-5\,\%, jitter, bandwidth-10\,Mbit/s)
+and a Python driver
+(\texttt{benchmarks/bench\_quic\_network.py}). Evaluation remains
+single-host emulated; SIFR does not claim multi-host, NAT-traversal,
+mobile, or Internet-scale measurement.
 
-\textbf{Formal scope.} TLA+ checking is bounded. Tamarin abstracts cryptographic primitives and includes a replay-cache restriction representing implementation state. There is no Coq/TLAPS refinement proof from Python code to the formal models.
+\textbf{Formal scope.} TLA+ invariants are bounded-proven by TLC. SIFR
+ships an operator-runnable Apalache configuration
+(\texttt{formal/apalache.cfg}) for symbolic bounded re-checking, but
+does not claim an Apalache proof unless the operator runs it and commits
+the log. Tamarin abstracts cryptographic primitives and
+includes a documented replay-cache restriction. SIFR adds runtime
+\emph{trace-checked} conformance via
+\texttt{sifr/trace\_conformance.py}: the same TLA+ invariants are
+re-evaluated over traces emitted by the Python implementation, and
+nine counterexample traces are rejected by the checker to prove
+sensitivity. SIFR does not claim a Coq/TLAPS refinement proof from
+Python to the formal models.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{v0.5 limitation status. \emph{Closed} = the v0.4 limitation no
+longer applies. \emph{Narrowed} = the limitation is reduced and the
+narrowed claim is stated. \emph{Remaining} = the honest non-claim that
+remains.}
+\label{tab:limitations-final}
+\begin{tabular}{p{2.4cm}p{1.3cm}p{12cm}}
+\toprule
+Area & Status & v0.5 honest claim \\
+\midrule
+Cryptography &
+Narrowed &
+Standard assumptions stated; integration validated against RFC 8032,
+FIPS 180-4, NIST SP 800-38D, RFC 9106 vectors plus misuse tests.
+Primitive security not proved by SIFR. \\
+Credentials &
+Narrowed &
+Renamed to \emph{SIFR Capability Credential}. Bitmap status list with
+Ed25519-signed list and bound-into-proof index. NOT W3C VC compliant;
+no JSON-LD loader; no URDNA2015. \\
+Identity &
+Narrowed &
+\texttt{did:web}, \texttt{did:key}, \texttt{did:sifr} for Ed25519 in
+\texttt{publicKeyBase64}, \texttt{publicKeyMultibase},
+\texttt{publicKeyJwk}. Not the full DID ecosystem. \\
+Revocation/replay &
+Narrowed &
+SQLite-WAL replay with cross-process \texttt{PRIMARY KEY} gate;
+reload-able signed-JSONL revocation. No Byzantine consensus, no
+distributed propagation. \\
+WASM sandbox &
+Narrowed &
+No-WASI, fuel- and memory-bounded, fresh-store policy; tested against
+seven adversarial fixtures. No arbitrary-code-safety claim. \\
+QUIC network &
+Narrowed &
+Two-bridge Docker harness with seven NetEm profiles. Still single-host
+emulated; no Internet-scale claim. \\
+Formal evidence &
+Narrowed &
+Bounded-proven (TLC), symbolic-proven (Tamarin), Apalache config shipped
+for operator-runnable symbolic bounded checking, trace-checked
+conformance (Python). No implementation-refinement proof. \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \section{Reproducibility}
 

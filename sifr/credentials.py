@@ -1,15 +1,23 @@
-"""VC-inspired capability credentials.
+"""SIFR Capability Credentials.
 
-The data model mirrors the W3C Verifiable Credentials Data Model 1.1 shape
+These are signed authorization tokens carrying a capability grant. The data
+model mirrors the W3C Verifiable Credentials Data Model 1.1 shape
 (@context, type, issuer, issuanceDate, expirationDate, credentialSubject,
-proof) but does NOT claim W3C VC compliance. In particular:
+proof) for ergonomic familiarity. SIFR does NOT claim W3C VC compliance:
 
 - We do not load JSON-LD contexts or perform RDF canonicalization (URDNA2015).
 - The proof type "Ed25519Signature2020" is verified via plain JSON
   canonicalization (sorted keys, separators), not the W3C-registered proof
   suite normalization.
-- Revocation status is checked separately via `RevocationRegistry`, not via
-  StatusList2021 / RevocationList2020.
+- We provide a SIFR-specific `SIFRStatusList2021` mechanism in
+  `sifr.credential_status`. It is modeled on, but not compatible with, the
+  W3C StatusList2021 wire format.
+
+The `type` array now carries `"SIFRCapabilityCredential"` as the primary
+SIFR-native type. `"VerifiableCredential"` and `"CapabilityCredential"` are
+retained for backwards compatibility with v0.4 fixtures and demos and for
+recognizability by tooling that expects the VC shape — they do NOT signal
+W3C compliance.
 
 See docs/credential_model.md for the full scope and non-claims.
 """
@@ -18,7 +26,7 @@ from __future__ import annotations
 import base64
 import copy
 from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -30,10 +38,25 @@ from .utils import parse_utc, utc_now_iso
 
 IssuerKey = Union[Ed25519PublicKey, KeyResolver]
 
-__all__ = ["issue_credential", "verify_credential", "credential_to_grant"]
+__all__ = [
+    "issue_credential",
+    "verify_credential",
+    "credential_to_grant",
+    "SIFR_CAPABILITY_CREDENTIAL_TYPE",
+    "SIFR_CONTEXT_URL",
+]
 
 PROOF_TYPE = "Ed25519Signature2020"
 PROOF_PURPOSE = "assertionMethod"
+
+# SIFR-native type. The primary type going forward.
+SIFR_CAPABILITY_CREDENTIAL_TYPE = "SIFRCapabilityCredential"
+
+# A SIFR-local context URL. This is a plain identifier — SIFR does NOT load
+# or expand JSON-LD contexts. The URL is documented in docs/credential_model.md
+# and is also written to docs/contexts/sifr-credential-v1.jsonld for offline
+# inspection.
+SIFR_CONTEXT_URL = "https://sifr.dev/contexts/sifr-credential-v1"
 
 
 def issue_credential(
@@ -45,11 +68,19 @@ def issue_credential(
     issuer_kid: str,
     expires_at: str,
     issued_at: Optional[str] = None,
+    credential_status: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     issuance_date = issued_at or utc_now_iso()
     credential: dict[str, Any] = {
-        "@context": ["https://www.w3.org/2018/credentials/v1"],
-        "type": ["VerifiableCredential", "CapabilityCredential"],
+        "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            SIFR_CONTEXT_URL,
+        ],
+        "type": [
+            "VerifiableCredential",
+            "CapabilityCredential",
+            SIFR_CAPABILITY_CREDENTIAL_TYPE,
+        ],
         "issuer": issuer,
         "issuanceDate": issuance_date,
         "expirationDate": expires_at,
@@ -58,6 +89,10 @@ def issue_credential(
             "capability": copy.deepcopy(capability_grant_payload),
         },
     }
+    if credential_status is not None:
+        # Bind the status reference into the signed body so the (index, list)
+        # link cannot be swapped after the fact.
+        credential["credentialStatus"] = copy.deepcopy(credential_status)
     body_canonical = canonical_json(credential)
     signature = issuer_private_key.sign(body_canonical)
     credential["proof"] = {
@@ -70,11 +105,18 @@ def issue_credential(
     return credential
 
 
+# A status-checker callable: given the credentialStatus dict, raise
+# CredentialError if revoked. SIFR's reference implementation lives in
+# sifr.credential_status.StatusList; users can also pass a custom callable.
+StatusChecker = Callable[[dict[str, Any]], None]
+
+
 def verify_credential(
     credential: dict[str, Any],
     issuer_key: IssuerKey,
     *,
     now: Optional[datetime] = None,
+    status_checker: Optional[StatusChecker] = None,
 ) -> bool:
     proof = credential.get("proof")
     if not isinstance(proof, dict):
@@ -126,6 +168,12 @@ def verify_credential(
         raise CredentialError("credentialSubject missing id")
     if "capability" not in subject_obj:
         raise CredentialError("credentialSubject missing capability")
+
+    if status_checker is not None:
+        status_field = credential.get("credentialStatus")
+        if isinstance(status_field, dict):
+            # Delegating raises CredentialError on revocation.
+            status_checker(status_field)
 
     return True
 

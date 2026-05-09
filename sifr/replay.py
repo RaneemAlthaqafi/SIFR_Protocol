@@ -43,7 +43,14 @@ class ReplayCache:
 
     def _open_db(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(str(path), isolation_level=None)
+        self._db = sqlite3.connect(
+            str(path), isolation_level=None, check_same_thread=False, timeout=10.0
+        )
+        # WAL mode lets multiple processes read while a writer commits.
+        # busy_timeout coordinates concurrent INSERTs into the unique index.
+        self._db.execute("PRAGMA journal_mode=WAL")
+        self._db.execute("PRAGMA synchronous=NORMAL")
+        self._db.execute("PRAGMA busy_timeout=5000")
         self._db.execute(
             "CREATE TABLE IF NOT EXISTS replay "
             "(sender TEXT, session TEXT, msgid TEXT, ts REAL, "

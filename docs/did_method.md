@@ -1,17 +1,29 @@
 # DID Methods in SIFR
 
-SIFR v0.2 implements two DID methods. Neither claims full W3C interoperability.
+SIFR implements three DID methods for Ed25519. None of them claims full W3C ecosystem interoperability.
 
 | Method | Resolver | Use |
 |---|---|---|
-| `did:web` | `sifr.did.did_web.DidWebResolver` | Primary. Resolves DIDs via HTTP/HTTPS per the [did:web spec](https://w3c-ccg.github.io/did-method-web/). |
+| `did:web` | `sifr.did.did_web.DidWebResolver` | Resolves DIDs via HTTP/HTTPS per the [did:web spec](https://w3c-ccg.github.io/did-method-web/). |
+| `did:key` | `sifr.did.did_key.DidKeyResolver` | Pure-cryptographic — the DID identifier itself encodes the public key (Ed25519 only). |
 | `did:sifr` | `sifr.did.did_sifr.DidSifrResolver` | Local-only fallback. Resolves DIDs from a directory of JSON documents on disk. |
 
-Both implement the `DidResolver` ABC, which itself satisfies the `KeyResolver` Protocol. They are interchangeable under `MultiMethodResolver`.
+All three implement the `DidResolver` ABC, which satisfies the `KeyResolver` Protocol. They are interchangeable under `MultiMethodResolver`.
+
+## Honest scope claim
+
+> SIFR supports `did:web`, `did:key`, and local `did:sifr` for Ed25519 keys
+> encoded as `publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk`.
+
+We do **not** claim full W3C DID-Core compliance, JSON-LD context expansion,
+URDNA2015 normalization, support for non-Ed25519 curves, or interoperability
+with other registered DID methods (`did:ion`, `did:ethr`, `did:peer`, …).
 
 ## Supported DID document schema
 
-Both methods consume documents with this structure:
+All methods accept documents shaped as below. Exactly one of
+`publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk` must be present
+per verificationMethod entry.
 
 ```json
 {
@@ -22,13 +34,35 @@ Both methods consume documents with this structure:
             "id": "did:sifr:alice#key-1",
             "type": "Ed25519VerificationKey2020",
             "controller": "did:sifr:alice",
-            "publicKeyBase64": "<32-byte Ed25519 public key, base64>"
+            "publicKeyMultibase": "z<base58btc(0xed01 || raw32)>"
         }
     ]
 }
 ```
 
-Supported `type` values: `Ed25519VerificationKey2020`, `Ed25519VerificationKey2018`. The key field is `publicKeyBase64` (a SIFR-specific simplification — the full W3C spec uses `publicKeyMultibase` or `publicKeyJwk`).
+Accepted `type` / key-format combinations:
+
+| `type` | Key field | Notes |
+|---|---|---|
+| `Ed25519VerificationKey2018` | `publicKeyBase64` | Legacy form, still accepted for compatibility. |
+| `Ed25519VerificationKey2020` | `publicKeyBase64` *or* `publicKeyMultibase` | Multibase is the W3C-preferred encoding. |
+| `JsonWebKey2020` | `publicKeyJwk` | JWK must have `{"kty":"OKP","crv":"Ed25519","x":<base64url>}`. |
+
+Multibase encoding rules:
+
+- Prefix character `z` selects base58btc.
+- Decoded payload must start with multicodec `0xed 0x01` (Ed25519 public key) followed by exactly 32 raw bytes.
+- Other multibase prefixes (`m` for base64, `f` for base16, …) are rejected.
+
+JWK encoding rules (RFC 7518 §6.1.2 / RFC 8037 §2):
+
+- `kty` must be `OKP`.
+- `crv` must be `Ed25519`.
+- `x` must be base64url (no padding) of exactly 32 raw bytes.
+
+## did:web
+
+## did:web
 
 ## did:web
 
@@ -43,6 +77,26 @@ Per the [W3C did:web spec](https://w3c-ccg.github.io/did-method-web/), the DID i
 The colon between host and port is percent-encoded (`%3A`); subsequent colons are interpreted as path separators.
 
 `DidWebResolver(scheme="http")` is for tests only. Production usage uses HTTPS.
+
+## did:key
+
+`did:key` is purely cryptographic: the DID identifier itself contains the
+public key, so resolution is local and deterministic and never touches a
+network or filesystem.
+
+Form: `did:key:z<base58btc(0xed01 || raw32)>`. The verificationMethod id is
+constructed by appending `#z<multibase>` to the DID, matching the
+W3C-CCG canonical form. The resolver verifies that the input identifier is
+in canonical form (re-encoding the parsed key produces the same string)
+and rejects:
+
+- non-`z` multibase prefixes (`m`, `f`, …);
+- multicodec prefixes other than Ed25519 `0xed01`;
+- short or extra-byte payloads;
+- any DID method other than `did:key`.
+
+The synthesized verificationMethod uses `Ed25519VerificationKey2020` +
+`publicKeyMultibase`.
 
 ## did:sifr (local method)
 
@@ -61,9 +115,15 @@ This method exists for offline tests, integration demos, and air-gapped scenario
 
 ## What we explicitly do NOT claim
 
-- Compatibility with the wider W3C DID ecosystem. SIFR's parser does not load JSON-LD contexts, does not perform RDF canonicalization, and supports only one verificationMethod field name (`publicKeyBase64`).
-- Resolution of `did:key`, `did:ion`, `did:ethr`, or any other registered method. Adding new methods means writing a new `DidResolver` subclass and registering it with `MultiMethodResolver`.
-- Long-term identifier persistence guarantees. `did:web` documents can disappear when the host stops serving them; `did:sifr` documents are local and not synchronized.
+- Full W3C DID-Core compliance. SIFR's parser does not load JSON-LD
+  contexts and does not perform RDF canonicalization (URDNA2015).
+- Support for non-Ed25519 curves (X25519, secp256k1, P-256, …).
+- Resolution of `did:ion`, `did:ethr`, `did:peer`, or any DID method beyond
+  `did:web`, `did:key`, and `did:sifr`. Adding new methods means writing a
+  new `DidResolver` subclass and registering it with `MultiMethodResolver`.
+- Long-term identifier persistence. `did:web` documents can disappear when
+  the host stops serving them; `did:sifr` documents are local; `did:key` is
+  forever-valid but cannot be rotated without a new identifier.
 
 ## Trap-acceptance tests
 

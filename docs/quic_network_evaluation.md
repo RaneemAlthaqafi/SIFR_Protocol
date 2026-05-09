@@ -47,3 +47,54 @@ python scripts/generate_quic_network_figure.py
 ```
 
 The figure is written to `paper/figures/benchmark_quic_network.png`. The raw CSV at `benchmarks/results/v0.3/quic_network_latency.csv` is committed; rerunning the pipeline regenerates it deterministically (within environmental variance of NetEm).
+
+## v0.5 extended profile sweep (Docker Compose + NetEm)
+
+The v0.5 harness adds:
+
+- **Two-network compose**: `docker/compose_quic_two_networks.yml` puts the
+  client and server on disjoint bridge networks joined by a "trunk" bridge.
+  Impairment is applied on the client's trunk-facing `eth1`, not on the
+  loopback or service network.
+- **Six profiles**: baseline, delay20, delay100, loss1, loss5, jitter,
+  bandwidth (10 Mbit/s TBF cap). Each profile is one entry in
+  `benchmarks/bench_quic_network.PROFILES`.
+- **Driver**: `python benchmarks/bench_quic_network.py --profiles ...`
+  builds the image once, sweeps the profile list, captures per-profile
+  CSVs from the client container, and writes a unified
+  `benchmarks/results/quic_network_latency.csv` with columns
+  `(profile, iteration, rtt_ms)` plus a metadata JSON next to it.
+
+Run on a Docker-equipped Linux host:
+
+```bash
+python benchmarks/bench_quic_network.py \
+  --profiles baseline delay20 delay100 loss1 loss5 jitter bandwidth \
+  --n 200
+```
+
+### Honest non-claim
+
+> The v0.5 sweep adds jitter and bandwidth profiles and uses a separate
+> trunk network so impairment is applied between containers, not on
+> loopback. It is **still single-host** emulation. SIFR does not claim
+> Internet-scale, multi-host, multi-AZ, NAT-traversal, or mobile-network
+> evaluation. Operators who want those should re-run the same workload
+> against two real hosts (the same Python script and TLS cert work
+> unchanged) and contribute results back.
+
+### Environment requirements
+
+- Linux host or WSL2 backend with `tc`/`iproute2` available inside
+  containers (the SIFR Dockerfile installs it).
+- Docker Compose v2 (`docker compose ...` form, not `docker-compose`).
+- The benchmarking process needs to mount `docker/out/` from the client
+  container; ensure your Docker bind-mount permissions allow this.
+
+### Why the sweep is not in CI
+
+Public CI runners typically do not grant `NET_ADMIN`, which is required by
+NetEm. The harness is therefore documented as an *operator-driven*
+benchmark, not a pre-merge gate. The repository commits the v0.3 numbers
+so paper figures remain reproducible without Docker; v0.5's expanded
+profiles are produced by the operator.

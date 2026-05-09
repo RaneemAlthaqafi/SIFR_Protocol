@@ -54,7 +54,25 @@ The captured proof run is stored in `formal/output/tamarin_output.txt`, with met
 ## What is NOT modeled
 
 - Wire-level bytes (signature mutation, frame fragmentation): tested but not modeled.
-- Cryptographic primitives' internal structure: assumed under standard hardness conditions.
-- Real network paths: out of scope for both TLA+ and Tamarin in v0.4.
+- Cryptographic primitives' internal structure: assumed under standard hardness conditions (see `docs/crypto_assumptions.md`).
+- Real network paths: out of scope for both TLA+ and Tamarin.
 - Liveness, progress, fairness: not modeled.
-- WASM sandbox internals: out of scope; isolation is empirically tested via the no-WASI-imports policy and adversarial fixtures.
+- WASM sandbox internals: out of scope; isolation is empirically tested via the no-WASI-imports policy and adversarial fixtures (see `docs/wasm_sandbox.md`).
+
+## v0.5 trace conformance bridge
+
+`sifr/trace_conformance.py` provides a Python translation of every TLA+
+invariant in this table. `tests/test_formal_trace_conformance.py`:
+
+- emits `TraceEvent` records from real Python flows
+  (`authorize_action` + `RevocationRegistry` + `ReplayCache`) and asserts
+  the trace satisfies every invariant — **trace-checked** evidence;
+- runs nine hand-crafted counterexample traces through the checker and
+  asserts each is rejected, proving the checker is sensitive to
+  violations rather than vacuously satisfied.
+
+This is conformance, not refinement: the bridge confirms that observed
+implementation behavior matches the model's invariants on the paths the
+tests exercise. It does not prove that *all* implementation paths refine
+the model. See `docs/formal_scope.md` for the verb-level claim
+vocabulary.
