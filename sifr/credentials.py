@@ -7,8 +7,9 @@ proof) for ergonomic familiarity. SIFR does NOT claim W3C VC compliance:
 
 - We do not load JSON-LD contexts or perform RDF canonicalization (URDNA2015).
 - The proof type "Ed25519Signature2020" is verified via plain JSON
-  canonicalization (sorted keys, separators), not the W3C-registered proof
-  suite normalization.
+  canonicalization (sorted keys, separators), with `proofValue` omitted
+  from the signed bytes. It is not the W3C-registered proof-suite
+  normalization.
 - We provide a SIFR-specific `SIFRStatusList2021` mechanism in
   `sifr.credential_status`. It is modeled on, but not compatible with, the
   W3C StatusList2021 wire format.
@@ -93,15 +94,17 @@ def issue_credential(
         # Bind the status reference into the signed body so the (index, list)
         # link cannot be swapped after the fact.
         credential["credentialStatus"] = copy.deepcopy(credential_status)
-    body_canonical = canonical_json(credential)
-    signature = issuer_private_key.sign(body_canonical)
     credential["proof"] = {
         "type": PROOF_TYPE,
         "created": issuance_date,
         "verificationMethod": issuer_kid,
         "proofPurpose": PROOF_PURPOSE,
-        "proofValue": base64.b64encode(signature).decode("ascii"),
     }
+    signed_body = copy.deepcopy(credential)
+    signed_body["proof"] = dict(credential["proof"])
+    body_canonical = canonical_json(signed_body)
+    signature = issuer_private_key.sign(body_canonical)
+    credential["proof"]["proofValue"] = base64.b64encode(signature).decode("ascii")
     return credential
 
 
@@ -148,7 +151,8 @@ def verify_credential(
             )
 
     body = copy.deepcopy(credential)
-    body.pop("proof", None)
+    body["proof"] = copy.deepcopy(proof)
+    body["proof"].pop("proofValue", None)
     canonical = canonical_json(body)
     try:
         public_key.verify(base64.b64decode(proof_value), canonical)

@@ -25,7 +25,7 @@ Wire format (`StatusList`):
          "verificationMethod": "did:...#key-1",
          "proofPurpose": "assertionMethod",
          "proofValue": "<base64 Ed25519 signature over canonical JSON of the
-                        list with proof omitted>"
+                        list with proofValue omitted>"
       }
     }
 
@@ -142,16 +142,18 @@ class StatusList:
         # Pin the issued_at into the instance so re-signs are stable for the
         # same in-memory state.
         self._issued_at = body["issued_at"]
-        canonical = canonical_json(body)
-        sig = self.issuer_private_key.sign(canonical)
         signed = dict(body)
         signed["proof"] = {
             "type": _PROOF_TYPE,
             "verificationMethod": self.issuer_kid,
             "proofPurpose": _PROOF_PURPOSE,
             "created": body["issued_at"],
-            "proofValue": base64.b64encode(sig).decode("ascii"),
         }
+        signed_body = copy.deepcopy(signed)
+        signed_body["proof"] = dict(signed["proof"])
+        canonical = canonical_json(signed_body)
+        sig = self.issuer_private_key.sign(canonical)
+        signed["proof"]["proofValue"] = base64.b64encode(sig).decode("ascii")
         self._signed_doc = signed
         return signed
 
@@ -177,7 +179,8 @@ class StatusList:
             raise CredentialStatusError("proof missing proofValue or verificationMethod")
 
         body = copy.deepcopy(signed)
-        body.pop("proof", None)
+        body["proof"] = copy.deepcopy(proof)
+        body["proof"].pop("proofValue", None)
         canonical = canonical_json(body)
         if isinstance(verifier_key, Ed25519PublicKey):
             pub = verifier_key

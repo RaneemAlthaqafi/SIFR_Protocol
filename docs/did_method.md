@@ -13,7 +13,8 @@ All three implement the `DidResolver` ABC, which satisfies the `KeyResolver` Pro
 ## Honest scope claim
 
 > SIFR supports `did:web`, `did:key`, and local `did:sifr` for Ed25519 keys
-> encoded as `publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk`.
+> encoded as `publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk`,
+> with tested verification-relationship checks for the documented profile.
 
 We do **not** claim full W3C DID-Core compliance, JSON-LD context expansion,
 URDNA2015 normalization, support for non-Ed25519 curves, or interoperability
@@ -40,6 +41,13 @@ per verificationMethod entry.
 }
 ```
 
+The parser recognizes these verification relationships when present:
+`authentication`, `assertionMethod`, `capabilityInvocation`, and
+`capabilityDelegation`. Callers that need a purpose-bound key use
+`resolver.resolve_for(kid, relationship)`, which rejects a key that is not
+listed for that relationship. The legacy `resolver.resolve(kid)` method keeps
+backwards-compatible key lookup without purpose enforcement.
+
 Accepted `type` / key-format combinations:
 
 | `type` | Key field | Notes |
@@ -59,10 +67,6 @@ JWK encoding rules (RFC 7518 §6.1.2 / RFC 8037 §2):
 - `kty` must be `OKP`.
 - `crv` must be `Ed25519`.
 - `x` must be base64url (no padding) of exactly 32 raw bytes.
-
-## did:web
-
-## did:web
 
 ## did:web
 

@@ -14,11 +14,12 @@ SIFR is intended for the era of agentic services, where AI agents discover tools
 - Capability grants with issuer, subject, allowed actions, resources, expiration, payload budget, call budget, and delegation policy.
 - Replay protection keyed by `(sender_id, session_id, message_id)`.
 - Signed capability revocation registry.
-- DID-style key lookup for `did:web` and local `did:sifr`.
+- DID-style key lookup for `did:web`, `did:key`, and local `did:sifr`.
 - SIFR Capability Credentials with mutation detection and a SIFRStatusList2021 bitmap.
 - Content-addressed audit DAG with tamper and missing-parent detection.
 - Local transport and QUIC transport through `aioquic`.
 - WASM calculator execution through `wasmtime` with no WASI imports and fuel limits.
+- Production configuration guardrails for the documented deployment model and threat model.
 - TensorFrame demo encoding for numeric vectors.
 - A complete two-agent secure-flow demo.
 - Benchmarks, figures, raw results, formal artifacts, and release manifests.
@@ -39,7 +40,7 @@ SIFR is a proof-carrying research artifact. Claims are mapped to code, tests, TL
 
 Current verification summary:
 
-- `274` Python tests pass with `SIFR_TLC_FROZEN=1` (v0.5; up from 190 in v0.4).
+- `293` Python tests pass with `SIFR_TLC_FROZEN=1` (v0.5; up from 190 in v0.4).
 - `30` strict adversarial cases reject unauthorized or malformed behavior.
 - TLC verifies `9` invariants over `11,601` states (bounded-proven).
 - Apalache configuration shipped (`formal/apalache.cfg`) for operator-runnable
@@ -50,8 +51,7 @@ Current verification summary:
   prove the checker is sensitive (trace-checked).
 - Crypto vectors validated: RFC 8032 Ed25519 (TEST 1/2/3), FIPS 180-4 SHA-256
   short and 1M-byte vectors, NIST SP 800-38D AES-GCM Test Cases 1 & 3,
-  RFC 9106 Argon2id reference vector.
-- GitHub Actions passes on Ubuntu and Windows for Python 3.11 and 3.12.
+  and RFC 9106 Argon2id reference-style parameter checks.
 
 ## Quickstart
 
@@ -136,9 +136,9 @@ Selected measured results:
 
 - Plain JSON action: `53` bytes.
 - Signed SIFR action: `411` bytes.
-- Ed25519 sign: `0.0314 ms`.
-- Ed25519 verify: `0.0615 ms`.
-- Sign + verify + DAG append: `0.1104 ms`.
+- Ed25519 sign: `0.0340 ms`.
+- Ed25519 verify: `0.0770 ms`.
+- Sign + verify + DAG append: `0.1177 ms`.
 - QUIC loopback mean RTT: `0.42 ms`.
 - Docker + 20 ms NetEm delay: `22.03 ms` mean RTT.
 - WASM calculator warm execution: about `40.6 us`.
@@ -168,28 +168,37 @@ v0.4 limitations; the full closed/narrowed/remaining table lives in
 non-claims are:
 
 - **Cryptography.** SIFR validates integration against RFC 8032, FIPS 180-4,
-  NIST SP 800-38D, and RFC 9106 vectors plus misuse-resistance tests, but
-  does **not** prove primitive security. See `docs/crypto_assumptions.md`.
+  NIST SP 800-38D vectors and RFC 9106 Argon2id parameter checks plus
+  misuse-resistance tests, but does **not** prove primitive security. See
+  `docs/crypto_assumptions.md`.
+- **Production hardening.** SIFR is production-hardened for the documented
+  deployment model and threat model through fail-closed configuration, explicit
+  demo mode, payload limits, replay-window configuration, and error redaction.
+  This is not a claim of full security or a production standard. See
+  `docs/production_security_model.md`.
 - **Credentials.** SIFR ships *SIFR Capability Credentials* with a
   `SIFRStatusList2021` bitmap. NOT W3C VC compliant; no JSON-LD loader; no
   URDNA2015. See `docs/credential_model.md`.
 - **Identity.** Supports `did:web`, `did:key`, and local `did:sifr` for
   Ed25519 in `publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk`.
-  Other curves and other DID methods are out of scope.
+  Purpose-bound lookup for `authentication`, `assertionMethod`,
+  `capabilityInvocation`, and `capabilityDelegation` is tested for the
+  documented profile. Other curves and other DID methods are out of scope.
 - **Replay/revocation.** Process-shared via SQLite-WAL replay and
   signed-JSONL revocation. **Not** Byzantine consensus and **not** global
   revocation propagation. See `docs/revocation_replay_scope.md`.
 - **WASM sandbox.** No-WASI, fuel-bounded, memory-capped, fresh-store policy
   with seven adversarial fixtures. **Not** arbitrary-untrusted-code-safe;
   no side-channel resistance; not multi-tenant. See `docs/wasm_sandbox.md`.
-- **QUIC network.** Single-host emulated impairment over a two-bridge
-  Compose stack; seven NetEm profiles. **Not** Internet-scale, multi-host,
-  NAT-traversal, or mobile.
+- **QUIC network.** Measured v0.3 results cover loopback, Docker bridge,
+  20 ms delay, 1% loss, and 5% loss. v0.5 ships an operator-runnable
+  two-bridge, seven-profile NetEm harness, but no v0.5 two-network results
+  are committed. **Not** Internet-scale, multi-host, NAT-traversal, or mobile.
 - **Formal evidence.** Bounded-proven (TLC), symbolic-proven (Tamarin),
   trace-checked Python conformance. **No** TLAPS/Coq inductive proof; no
   implementation-refinement proof. See `docs/formal_scope.md`.
-- HSM-grade key isolation, enterprise PKI, and production-deployment
-  readiness remain out of scope.
+- HSM-grade key isolation, enterprise PKI, and general-purpose production
+  readiness remain future work outside the documented deployment model.
 
 ## Key Files
 

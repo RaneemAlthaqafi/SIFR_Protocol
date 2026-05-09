@@ -12,8 +12,8 @@ construction-in-the-spec property is violated by the implementation.
 
 This gives us:
 
-  - **trace-checked** evidence that every implementation action produces a
-    state transition consistent with the TLA+ transition relation;
+  - **trace-checked** evidence that implementation traces satisfy the same
+    invariants as the TLA+ model on the exercised paths;
   - **counterexample-replay** capability: a TLA+ counterexample, written as
     a sequence of TraceEvents, can be replayed in pytest to assert the
     impl rejects it.

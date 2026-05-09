@@ -149,6 +149,18 @@ def test_kid_aad_binding_prevents_ciphertext_swap(tmp_path):
         ks2.load_private_key("did:sifr:alice#key-1")
 
 
+def test_argon2_parameter_tampering_rejected(tmp_path):
+    ks = _new_store(tmp_path)
+    ks.generate_keypair("did:sifr:alice#key-1")
+    raw = json.loads((tmp_path / "keys.json").read_text("utf-8"))
+    raw["argon2"]["time_cost"] = raw["argon2"]["time_cost"] + 1
+    (tmp_path / "keys.json").write_text(json.dumps(raw), encoding="utf-8")
+
+    ks2 = _new_store(tmp_path)
+    with pytest.raises(KeyStoreError, match="decryption failed"):
+        ks2.load_private_key("did:sifr:alice#key-1")
+
+
 def test_production_argon2_params_are_conservative():
     assert PRODUCTION_ARGON2_PARAMS["time_cost"] >= 3
     assert PRODUCTION_ARGON2_PARAMS["memory_cost"] >= 65536

@@ -31,6 +31,7 @@ import argparse
 import csv
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -55,6 +56,18 @@ PROFILES: dict[str, dict[str, str]] = {
 
 def _have_docker() -> bool:
     return shutil.which("docker") is not None
+
+
+def _command_text(cmd: list[str]) -> str:
+    try:
+        return subprocess.check_output(
+            cmd,
+            cwd=str(REPO_ROOT),
+            stderr=subprocess.STDOUT,
+            text=True,
+        ).strip()
+    except Exception as exc:
+        return f"unavailable: {exc}"
 
 
 def _run_compose(env: dict[str, str], n: int, label: str) -> Optional[Path]:
@@ -174,8 +187,15 @@ def main() -> int:
                 "profiles_run": list(per_profile.keys()),
                 "n_per_profile": args.n,
                 "compose_file": str(COMPOSE_FILE.relative_to(REPO_ROOT)),
+                "profile_config": {name: PROFILES[name] for name in per_profile},
+                "docker_version": _command_text(["docker", "--version"]),
+                "docker_compose_version": _command_text(["docker", "compose", "version"]),
+                "os": platform.platform(),
+                "python": sys.version,
+                "commit": _command_text(["git", "rev-parse", "HEAD"]),
             },
             indent=2,
+            sort_keys=True,
         ),
         encoding="utf-8",
     )

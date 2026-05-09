@@ -135,6 +135,8 @@ def _b64url_nopad_encode(data: bytes) -> str:
 
 
 def _b64url_nopad_decode(value: str) -> bytes:
+    if "=" in value:
+        raise DidEncodingError("base64url value must not contain padding")
     pad = "=" * (-len(value) % 4)
     return base64.urlsafe_b64decode(value + pad)
 

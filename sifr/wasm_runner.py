@@ -153,7 +153,10 @@ class WasmToolRunner(SandboxedToolRunner):
             instance = wasmtime.Instance(store, module, [])
         except wasmtime.WasmtimeError as exc:
             raise WasmToolError(f"failed to instantiate {action_name}: {exc}") from exc
-        add_fn = instance.exports(store)["add"]
+        try:
+            add_fn = instance.exports(store)["add"]
+        except KeyError as exc:
+            raise WasmToolError(f"missing export for {action_name}: add") from exc
         try:
             result = add_fn(store, int(a), int(b))
         except wasmtime.Trap as exc:

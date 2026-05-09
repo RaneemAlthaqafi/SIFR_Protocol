@@ -56,7 +56,7 @@ The v0.5 harness adds:
   client and server on disjoint bridge networks joined by a "trunk" bridge.
   Impairment is applied on the client's trunk-facing `eth1`, not on the
   loopback or service network.
-- **Six profiles**: baseline, delay20, delay100, loss1, loss5, jitter,
+- **Seven profiles**: baseline, delay20, delay100, loss1, loss5, jitter,
   bandwidth (10 Mbit/s TBF cap). Each profile is one entry in
   `benchmarks/bench_quic_network.PROFILES`.
 - **Driver**: `python benchmarks/bench_quic_network.py --profiles ...`
@@ -77,7 +77,9 @@ python benchmarks/bench_quic_network.py \
 
 > The v0.5 sweep adds jitter and bandwidth profiles and uses a separate
 > trunk network so impairment is applied between containers, not on
-> loopback. It is **still single-host** emulation. SIFR does not claim
+> loopback. It is shipped as an operator-runnable harness; no v0.5
+> two-network result CSV is committed in this repository. It is **still
+> single-host** emulation. SIFR does not claim
 > Internet-scale, multi-host, multi-AZ, NAT-traversal, or mobile-network
 > evaluation. Operators who want those should re-run the same workload
 > against two real hosts (the same Python script and TLS cert work

@@ -106,6 +106,23 @@ def test_status_list_signature_tampering_rejected():
         StatusList.from_signed(signed, verifier_key=pub)
 
 
+def test_status_list_proof_metadata_tampering_rejected():
+    priv, pub = generate_keypair()
+    issuer = "did:sifr:alice"
+    kid = f"{issuer}#key-1"
+    sl = StatusList(
+        list_id="L",
+        issuer=issuer,
+        size=128,
+        issuer_kid=kid,
+        issuer_private_key=priv,
+    )
+    signed = sl.sign()
+    signed["proof"]["created"] = "2040-01-01T00:00:00Z"
+    with pytest.raises(CredentialStatusError, match="signature invalid"):
+        StatusList.from_signed(signed, verifier_key=pub)
+
+
 def test_status_list_index_out_of_range_rejected():
     priv, _ = generate_keypair()
     sl = StatusList(

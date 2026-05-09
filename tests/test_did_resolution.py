@@ -152,6 +152,47 @@ def test_did_sifr_controller_mismatch_rejected(tmp_path):
         resolver.resolve("did:sifr:alice#key-1")
 
 
+def test_did_sifr_verification_relationship_enforced(tmp_path):
+    _, pub = generate_keypair()
+    did = "did:sifr:alice"
+    kid = f"{did}#key-1"
+    doc = {
+        "id": did,
+        "verificationMethod": [{
+            "id": kid,
+            "type": "Ed25519VerificationKey2020",
+            "controller": did,
+            "publicKeyBase64": public_key_to_b64(pub),
+        }],
+        "assertionMethod": [kid],
+    }
+    (tmp_path / "alice.json").write_text(json.dumps(doc), encoding="utf-8")
+    resolver = DidSifrResolver(tmp_path)
+    assert public_key_to_b64(resolver.resolve_for(kid, "assertionMethod")) == public_key_to_b64(pub)
+    with pytest.raises(DidKeyMismatch, match="not authorized"):
+        resolver.resolve_for(kid, "capabilityInvocation")
+
+
+def test_did_sifr_relationship_unknown_kid_rejected(tmp_path):
+    _, pub = generate_keypair()
+    did = "did:sifr:alice"
+    kid = f"{did}#key-1"
+    doc = {
+        "id": did,
+        "verificationMethod": [{
+            "id": kid,
+            "type": "Ed25519VerificationKey2020",
+            "controller": did,
+            "publicKeyBase64": public_key_to_b64(pub),
+        }],
+        "authentication": [f"{did}#missing"],
+    }
+    (tmp_path / "alice.json").write_text(json.dumps(doc), encoding="utf-8")
+    resolver = DidSifrResolver(tmp_path)
+    with pytest.raises(DidDocumentError, match="unknown verification method"):
+        resolver.resolve_document(did)
+
+
 # ---------- did:web ----------
 
 def test_did_web_resolves_and_verifies():

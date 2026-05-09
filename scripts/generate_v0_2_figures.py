@@ -1,6 +1,7 @@
-"""Generate publication-quality figures for SIFR v0.2 benchmarks.
+"""Generate publication-quality figures for SIFR versioned benchmarks.
 
-Reads CSV/JSON from benchmarks/results/v0.2/ and writes PNGs to paper/figures/.
+Reads CSV/JSON from SIFR_FIGURE_DATA_DIR when set, otherwise from
+benchmarks/results/v0.2/, and writes PNGs to paper/figures/.
 Style choices: log-scale where data spans orders of magnitude, value labels
 on bars, consistent color palette, no 3D / gradient / chartjunk.
 """
@@ -8,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -18,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RESULTS = REPO_ROOT / "benchmarks" / "results" / "v0.2"
+RESULTS = Path(os.environ.get("SIFR_FIGURE_DATA_DIR", REPO_ROOT / "benchmarks" / "results" / "v0.2"))
 OUT = REPO_ROOT / "paper" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -235,10 +237,24 @@ def fig_adversary() -> None:
     with (RESULTS / "adversary_rejection.json").open("r", encoding="utf-8") as fh:
         data = json.load(fh)
 
+    def attack_key(row: dict) -> str:
+        return row.get("attack") or row.get("attack_id") or row.get("name", "")
+
+    def attack_label(row: dict) -> str:
+        if "attack" in row:
+            return row["attack"].replace("_", " ")
+        return f"{row.get('attack_id', '')} {row.get('name', '')}".strip().replace("_", " ")
+
+    def latency_us(row: dict) -> float:
+        if "avg_reject_us" in row:
+            return float(row["avg_reject_us"])
+        value = row.get("latency_us", 0.5)
+        return 0.5 if value in (None, -1) else float(value)
+
     # Sort by attack number for stable layout.
-    data.sort(key=lambda d: d["attack"])
-    labels = [d["attack"].replace("_", " ") for d in data]
-    avg = [float(d["avg_reject_us"]) for d in data]
+    data.sort(key=attack_key)
+    labels = [attack_label(d) for d in data]
+    avg = [latency_us(d) for d in data]
 
     # Color-code by error class.
     color_for = {
@@ -267,7 +283,7 @@ def fig_adversary() -> None:
     ax.invert_yaxis()
     ax.set_xscale("log")
     ax.set_xlabel("mean reject latency (us, log scale)")
-    ax.set_title("Network adversary rejection: 11 attacks, time to reject (n=200)")
+    ax.set_title(f"Adversary rejection: {len(data)} attacks, time to reject")
     ax.grid(axis="x", which="both", linestyle=":", alpha=0.4)
     for bar, val in zip(bars, avg):
         ax.text(

@@ -128,22 +128,11 @@ async def client_main() -> None:
 
 
 def setup_netem() -> None:
-    import subprocess
-    delay = os.environ.get("SIFR_NETEM_DELAY_MS", "").strip()
-    loss = os.environ.get("SIFR_NETEM_LOSS_PCT", "").strip()
-    iface = os.environ.get("SIFR_NETEM_IFACE", "eth0")
-    if not (delay or loss):
-        return
-    cmd = ["tc", "qdisc", "add", "dev", iface, "root", "netem"]
-    if delay:
-        cmd += ["delay", f"{delay}ms"]
-    if loss:
-        cmd += ["loss", f"{loss}%"]
-    print("setting NetEm:", " ".join(cmd), flush=True)
-    try:
-        subprocess.check_call(cmd)
-    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        print(f"NetEm setup failed: {exc}", file=sys.stderr, flush=True)
+    import quic_runner
+
+    rc = quic_runner.main()
+    if rc != 0:
+        raise RuntimeError(f"NetEm setup failed with exit code {rc}")
 
 
 def main() -> int:

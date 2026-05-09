@@ -66,4 +66,10 @@ class DidKeyResolver(DidResolver):
             public_key_multibase=multibase,
             key_format="publicKeyMultibase",
         )
-        return DidDocument(id=did, verification_methods=(method,))
+        relationships = {
+            "authentication": (kid,),
+            "assertionMethod": (kid,),
+            "capabilityInvocation": (kid,),
+            "capabilityDelegation": (kid,),
+        }
+        return DidDocument(id=did, verification_methods=(method,), relationships=relationships)

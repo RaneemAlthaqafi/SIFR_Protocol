@@ -1,4 +1,4 @@
-# Formal Evidence Scope
+﻿# Formal Evidence Scope
 
 SIFR ships several layers of formal evidence. Each layer is named with a
 distinct verb so paper claims and code comments can be honest about what
@@ -33,9 +33,9 @@ above with the matching qualifier. Anywhere it says "tested" or
 machine. `formal/run_tlc.sh` (or `.ps1`) runs TLC over a finite
 parameterization (`MC.cfg`) and reports `Model checking complete. No error
 has been found.` The number of states explored is recorded in
-`formal/output/tlc_summary.txt` and consumed by
-`tests/test_formal_artifacts.py` so the SIFR Python suite refuses to
-declare formal evidence current if TLC's state count drifts unexpectedly.
+`formal/output/tlc_metadata.json`, and `formal/output/model_hashes.json`
+binds the checked model files to the committed output. The SIFR Python suite
+refuses to declare formal evidence current when these artifacts drift.
 
 What this gives us: every reachable state under `MC.cfg`'s finite
 constants satisfies every invariant. What it does not give us: behavior
@@ -43,13 +43,12 @@ beyond the bound.
 
 ### Apalache (symbolic-checkable, operator-runnable)
 
-`formal/apalache.cfg` provides constants for symbolic search. Apalache
-explores state space with an SMT solver and an inductive abstraction; for
-the SIFR state machine it routinely reaches `--length=20` in seconds and
-reports no invariant violations. SIFR does not run Apalache in CI because
-the toolchain is not packaged for our runners — but every TLA+ change
-must be re-checked locally and the resulting log committed under
-`formal/output/apalache_*.log` if the check is updated.
+`formal/apalache.cfg` provides constants for symbolic search. SIFR does not
+run Apalache in CI, and no Apalache success log is committed in this
+repository. The shipped claim is therefore only **symbolic-checkable**:
+an Apalache-equipped operator can run the documented command and commit the
+resulting log under `formal/output/apalache_*.log` before making any
+Apalache-proven claim.
 
 ### Tamarin (symbolic-proven, Dolev-Yao)
 
@@ -58,7 +57,8 @@ Dolev-Yao adversary. Five lemmas (`authentication`,
 `authorization_required`, `replay_resistance`, `revocation_safety`,
 `tool_safety`) are proved automatically and re-checked in CI via the
 docker-packaged Tamarin Prover. Output is captured under
-`formal/output/tamarin_summary.txt`.
+`formal/output/tamarin_output.txt` with metadata in
+`formal/output/tamarin_metadata.json`.
 
 Tamarin abstracts cryptographic primitives — signatures are perfect,
 hashes are collision-free. The substantive abstraction noted in the v0.4
@@ -104,3 +104,4 @@ These remain future work. The narrowed claim that *does* hold is:
 > Apalache when the operator runs the shipped configuration, and
 > trace-checked over realistic Python executions of the SIFR
 > implementation. We do not have an implementation-refinement proof.
+

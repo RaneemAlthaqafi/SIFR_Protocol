@@ -27,6 +27,7 @@ CFG = FORMAL / "MC.cfg"
 OUTPUT = FORMAL / "output" / "tlc_output.txt"
 META = FORMAL / "output" / "tlc_metadata.json"
 HASHES = FORMAL / "output" / "model_hashes.json"
+APALACHE = FORMAL / "apalache.cfg"
 
 EXPECTED_INVARIANTS = [
     "TypeInvariant",
@@ -47,6 +48,13 @@ def test_tla_module_exists():
 
 def test_mc_config_exists():
     assert CFG.is_file(), f"missing MC.cfg at {CFG}"
+
+
+def test_apalache_config_exists_and_is_operator_runnable():
+    assert APALACHE.is_file(), f"missing Apalache config at {APALACHE}"
+    body = APALACHE.read_text(encoding="utf-8")
+    assert "apalache-mc check" in body
+    assert "INVARIANT SecureCapabilityLifecycle" in body
 
 
 def test_module_declares_all_expected_invariants():

@@ -44,9 +44,17 @@ def main() -> None:
     # 3. v0.3-specific adversary figure (30 attacks).
     run([sys.executable, "scripts/generate_v0_3_adversary_figure.py"])
 
+    # 3b. Paper-referenced v0.3 QUIC network figure.
+    run([sys.executable, "scripts/generate_quic_network_figure.py"])
+
     # 4. Manifest. Each entry maps a figure to its source data file and the
     #    SHA-256 of both, so reviewers can detect stale figures.
     pairs = {
+        "architecture.png": None,
+        "handshake_sequence.png": None,
+        "audit_dag.png": None,
+        "benchmark_payload.png": "../payload_size.csv",
+        "benchmark_quic_network.png": "quic_network_latency.csv",
         "benchmark_did_resolution.png": "did_resolution.csv",
         "benchmark_replay_overhead.png": "replay_overhead.csv",
         "benchmark_revocation_overhead.png": "revocation_overhead.csv",
@@ -55,7 +63,7 @@ def main() -> None:
         "benchmark_quic_latency.png": "quic_latency.csv",
         "benchmark_adversary.png": "adversary_rejection.json",
         "benchmark_v0_1_vs_v0_2.png": None,  # synthesized table
-        "ieee_adversary_rejection.pdf": "../v0.2/adversary_rejection.json",
+        "ieee_adversary_rejection.pdf": "adversary_rejection.json",
         "benchmark_v0_3_adversary.png": "adversary_rejection.json",
     }
     manifest = {
@@ -69,7 +77,7 @@ def main() -> None:
         if fig_path.is_file():
             entry["figure_sha256"] = sha256(fig_path)
         if src:
-            src_path = RESULTS / src
+            src_path = (RESULTS / src).resolve()
             if src_path.is_file():
                 entry["source_sha256"] = sha256(src_path)
         manifest["figures"].append(entry)

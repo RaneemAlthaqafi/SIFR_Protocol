@@ -1,4 +1,4 @@
-# Cryptographic Assumptions and Test Vectors
+﻿# Cryptographic Assumptions and Test Vectors
 
 SIFR uses standard cryptographic primitives. **SIFR does not prove primitive
 security from scratch.** It validates integration against published standard
@@ -93,7 +93,7 @@ the relevant primitive in the project's environment:
 |---|---|
 | RFC 8032 §7.1 | Ed25519 TEST 1, TEST 2, TEST 3 (sign + verify equality) |
 | FIPS 180-4 / NIST CAVS | SHA-256 of empty string, "abc", and the 56-character message; longer 1-million-`a` vector via streaming update |
-| NIST SP 800-38D Appendix B | AES-128-GCM and AES-256-GCM Test Case 1, 3, 4 (encrypt+decrypt+tag check) |
+| NIST SP 800-38D Appendix B | AES-128-GCM Test Case 1 and Test Case 3 (encrypt+decrypt+tag check) |
 | RFC 9106 §A.3 | Argon2id reference vector with declared parameters |
 
 Any future change to a crypto dependency that breaks one of these vectors
@@ -106,14 +106,17 @@ In addition to vector parity, we assert misuse resistance:
 - `test_ed25519_wrong_key_rejected`: verifying with the wrong public key fails.
 - `test_ed25519_modified_message_rejected`: flipping any byte of the message
   invalidates the signature.
+- `test_aes_gcm_wrong_key_rejected`: decrypting under a different AES key yields
+  `InvalidTag`.
 - `test_aes_gcm_wrong_aad_rejected`: AAD mismatch yields `InvalidTag`.
 - `test_aes_gcm_modified_ciphertext_rejected`: any ciphertext bit flip yields
   `InvalidTag`.
 - `test_aes_gcm_nonce_reuse_documented`: documents that nonce reuse with the
   same key is catastrophic and verifies the API requires explicit nonce
   passing (no default-nonce footgun).
-- `test_argon2id_parameters_recorded_and_verified`: hashing twice with the
-  same parameters yields a verifying tag; a parameter mismatch fails.
+- `test_argon2id_parameters_recorded_and_verified`: hashing with a parameter
+  mismatch produces a different tag, and SIFR keyring code records parameters
+  next to the encrypted blob.
 
 ## What this section does *not* claim
 
@@ -143,3 +146,4 @@ In addition to vector parity, we assert misuse resistance:
 - A. Joux. "Authentication failures in NIST version of GCM." 2006.
 - H. Böck, A. Zauner, S. Devlin, J. Somorovsky, P. Jovanovic. "Nonce-Disrespecting
   Adversaries: Practical Forgery Attacks on GCM in TLS." WOOT 2016.
+

@@ -17,6 +17,7 @@ IEEE Transactions formatting compliance:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import matplotlib
@@ -26,7 +27,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA = REPO_ROOT / "benchmarks" / "results" / "v0.2" / "adversary_rejection.json"
+RESULTS = Path(os.environ.get("SIFR_FIGURE_DATA_DIR", REPO_ROOT / "benchmarks" / "results" / "v0.2"))
+DATA = RESULTS / "adversary_rejection.json"
 OUT = REPO_ROOT / "paper" / "figures" / "ieee_adversary_rejection.pdf"
 
 # ---------- IEEE typography ----------
@@ -55,7 +57,26 @@ plt.rcParams.update(
 # ---------- Load and order data ----------
 with DATA.open("r", encoding="utf-8") as fh:
     rows = json.load(fh)
-rows.sort(key=lambda d: d["attack"])
+
+
+def attack_key(row: dict) -> str:
+    return row.get("attack") or row.get("attack_id") or row.get("name", "")
+
+
+def attack_label(row: dict) -> str:
+    if "attack" in row:
+        return row["attack"].replace("_", " ")
+    return f"{row.get('attack_id', '')} {row.get('name', '')}".strip().replace("_", " ")
+
+
+def reject_us(row: dict) -> float:
+    if "avg_reject_us" in row:
+        return float(row["avg_reject_us"])
+    value = row.get("latency_us", 0.5)
+    return 0.5 if value in (None, -1) else float(value)
+
+
+rows.sort(key=attack_key)
 
 
 def error_family(expected: str) -> str:
@@ -82,6 +103,7 @@ PALETTE = {
     "AuditDAGError":          "#22a884",
     "MessageValidationError": "#7ad151",
     "CapabilityError":        "#fde725",
+    "Other":                  "#999999",
 }
 # Hatch patterns ensure the bars remain distinguishable in grayscale.
 HATCHES = {
@@ -91,6 +113,7 @@ HATCHES = {
     "AuditDAGError":          "----",
     "MessageValidationError": "++++",
     "CapabilityError":        "\\\\\\\\",
+    "Other":                  "||||",
 }
 LEGEND_ORDER = [
     "SignatureError",
@@ -99,10 +122,11 @@ LEGEND_ORDER = [
     "AuditDAGError",
     "MessageValidationError",
     "CapabilityError",
+    "Other",
 ]
 
-labels = [r["attack"].replace("_", " ") for r in rows]
-values = [float(r["avg_reject_us"]) for r in rows]
+labels = [attack_label(r) for r in rows]
+values = [reject_us(r) for r in rows]
 families = [error_family(r["expected"]) for r in rows]
 
 # ---------- Figure ----------
@@ -126,7 +150,7 @@ ax.invert_yaxis()
 ax.set_xscale("log")
 ax.set_xlim(left=1, right=max(values) * 2.0)
 ax.set_xlabel("Mean Rejection Latency ($\\mu$s, log scale)")
-ax.set_title("SIFR v0.2 Controlled Adversary Evaluation")
+ax.set_title("SIFR Controlled Adversary Evaluation")
 ax.grid(axis="x", which="both", alpha=0.3, linestyle=":")
 ax.tick_params(axis="y", which="both", length=0)
 

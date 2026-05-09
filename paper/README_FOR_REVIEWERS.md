@@ -21,18 +21,25 @@ Evidence included in the repository:
 
 - Python implementation under `sifr/`.
 - Secure two-agent QUIC/WASM/DID demo.
-- 190 implementation tests.
+- 293 implementation tests.
 - 30-case adversarial rejection suite.
+- Production configuration guardrail tests and documentation.
+- Crypto vector and misuse tests.
+- `did:key`, multibase/JWK, and DID relationship checks.
+- SIFR Capability Credential and `SIFRStatusList2021` tests.
+- Process-shared replay/revocation tests.
 - TLA+ model checked by TLC: 9 invariants, 11,601 states.
 - Tamarin symbolic model: 5/5 lemmas verified.
+- Runtime trace-conformance tests and operator-runnable Apalache config; no
+  Apalache proof log is committed.
 - Benchmark scripts, raw results, generated plots, and manifests.
 
 ## Non-Claims
 
 The paper does not claim:
 
-- production deployment readiness;
-- full W3C Verifiable Credential compliance;
+- full security or general-purpose production-standard status;
+- W3C Verifiable Credential compliance or W3C StatusList2021 interoperability;
 - HSM-grade key isolation or enterprise PKI;
 - arbitrary untrusted-code WASM safety;
 - Internet-scale or multi-host QUIC evaluation;

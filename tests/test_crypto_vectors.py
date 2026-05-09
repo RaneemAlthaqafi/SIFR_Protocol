@@ -17,10 +17,10 @@ not primitive concerns:
 
 - wrong-key Ed25519 verification fails;
 - modified-message Ed25519 verification fails;
-- AES-GCM AAD/ciphertext/tag tampering fails;
+- AES-GCM wrong-key and AAD/ciphertext/tag tampering fails;
 - AES-GCM nonce uniqueness is the caller's responsibility (documented and
   exercised);
-- Argon2id parameters are explicitly recorded and verified.
+- Argon2id parameters are explicitly recorded and parameter mismatch is rejected.
 """
 from __future__ import annotations
 
@@ -250,6 +250,16 @@ def test_aes_gcm_nist_test_case_3() -> None:
     assert pt == NIST_TC3_PLAINTEXT
 
 
+def test_aes_gcm_wrong_key_rejected() -> None:
+    """Misuse-resistance: ciphertext does not decrypt under a different key."""
+    key = AESGCM.generate_key(bit_length=256)
+    wrong_key = AESGCM.generate_key(bit_length=256)
+    iv = b"\x04" * 12
+    ct = AESGCM(key).encrypt(iv, b"sensitive payload", b"aad")
+    with pytest.raises(InvalidTag):
+        AESGCM(wrong_key).decrypt(iv, ct, b"aad")
+
+
 def test_aes_gcm_wrong_aad_rejected() -> None:
     """Misuse-resistance: AAD must match between encrypt and decrypt."""
     key = AESGCM.generate_key(bit_length=256)
@@ -317,8 +327,8 @@ def test_aes_gcm_nonce_reuse_documented() -> None:
 # Argon2id — RFC 9106 Appendix A.3
 # =============================================================================
 
-def test_argon2id_rfc9106_reference_vector() -> None:
-    """Argon2id with the RFC 9106 §A.3 reference parameters.
+def test_argon2id_reference_parameters_are_deterministic() -> None:
+    """Argon2id with RFC 9106 reference-style parameters.
 
     Inputs from RFC 9106 §A.3 (Argon2id, version 0x13):
       Password: 32 bytes of 0x01
@@ -327,24 +337,18 @@ def test_argon2id_rfc9106_reference_vector() -> None:
       Associated data: 12 bytes of 0x04
       Memory: 32 KiB; Iterations: 3; Parallelism: 4; Tag length: 32
 
-    Expected tag (hex):
-      0d 64 0d f5 8d 78 76 6c 08 c0 37 a3 4a 8b 53 c9
-      d0 1e f0 45 2d 75 b6 5e b5 25 20 e9 6b 01 e6 59
-
-    The argon2-cffi package's low-level binding accepts secret and
-    associated data parameters; we use it to validate the exact RFC 9106
-    reference vector. If the binding is unavailable we skip — the high-level
-    PasswordHasher is still tested separately for parameter recording.
+    The argon2-cffi low-level binding used in this environment does not expose
+    RFC 9106's separate secret/ad inputs, so this is not an exact RFC A.3
+    known-answer test. It is a deterministic check over the same public
+    parameter shape; keyring parameter recording is tested separately.
     """
     try:
         from argon2.low_level import Type, hash_secret_raw, ARGON2_VERSION
     except Exception as exc:  # pragma: no cover - import guard
         pytest.skip(f"argon2 low_level not available: {exc}")
 
-    # The RFC 9106 vector uses secret + ad which the argon2-cffi binding
-    # exposes only through the C-level interface. The Python wrapper
-    # exposes hash_secret_raw without secret/ad in some versions; fall back
-    # to a parameter-faithful subset if so.
+    # RFC 9106 A.3 also supplies secret/ad fields that this Python binding
+    # does not expose. Keep this as integration evidence, not a full KAT.
     password = bytes([0x01]) * 32
     salt = bytes([0x02]) * 16
 

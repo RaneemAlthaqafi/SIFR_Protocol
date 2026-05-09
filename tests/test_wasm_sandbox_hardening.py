@@ -185,6 +185,16 @@ def test_module_with_missing_export_rejected_cleanly():
         instance.exports(store)["add"]
 
 
+def test_calculator_path_wraps_missing_export_as_wasm_error(tmp_path):
+    (tmp_path / "calculator.wat").write_text(
+        (FIXTURES / "missing_export.wat").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    runner = WasmToolRunner(modules_dir=tmp_path)
+    with pytest.raises(WasmToolError, match="missing export"):
+        runner.execute("tool.calculator.add", {"a": 1, "b": 2})
+
+
 def test_runner_default_memory_limit_is_finite():
     assert isinstance(WasmToolRunner.DEFAULT_MEMORY_PAGE_LIMIT, int)
     assert WasmToolRunner.DEFAULT_MEMORY_PAGE_LIMIT > 0

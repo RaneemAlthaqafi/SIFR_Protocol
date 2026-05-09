@@ -66,7 +66,9 @@ recognizable shape hints — they do NOT signal W3C compliance.
 ```
 
 The `credentialStatus` field is optional and bound into the proof signature.
-It is interpreted by `sifr.credential_status.StatusList`.
+The proof metadata is also signed; `proofValue` itself is the only proof field
+omitted from the signature input. Status lists use the same rule. The status
+field is interpreted by `sifr.credential_status.StatusList`.
 
 The `credentialSubject.capability` payload is exactly the SIFR `CapabilityGrant` payload from `sifr.capabilities.create_capability_grant`. `credential_to_grant()` extracts it after verification.
 
@@ -77,7 +79,7 @@ The `credentialSubject.capability` payload is exactly the SIFR `CapabilityGrant`
 1. `proof` must be a dict with `type == "Ed25519Signature2020"` and `proofPurpose == "assertionMethod"`.
 2. The `issuer_key` is either an `Ed25519PublicKey` (used directly) or a `KeyResolver` (used to resolve `proof.verificationMethod` to a key).
 3. The DID portion of `proof.verificationMethod` (everything before `#`) must equal the `issuer` field. This blocks credentials that claim issuance by someone whose key didn't actually sign them.
-4. The signature is verified over `canonical_json(credential without proof)`. Any mutation of any field outside `proof` invalidates the signature.
+4. The signature is verified over `canonical_json(credential with proofValue omitted)`. Any mutation of the credential body or proof metadata invalidates the signature.
 5. Date checks: `issuanceDate <= now < expirationDate`.
 6. `credentialSubject` must contain `id` and `capability`.
 
@@ -106,6 +108,7 @@ In `tests/test_credentials.py`:
 | `test_mutate_expiration_after_sign_fails` | Extending `expirationDate` after signing fails verification. |
 | `test_mutate_capability_after_sign_fails` | Adding actions to the embedded grant fails verification. |
 | `test_swap_proof_value_fails` | Modifying `proof.proofValue` directly fails verification. |
+| `test_mutate_proof_metadata_after_sign_fails` | Modifying proof metadata after signing fails verification. |
 | `test_issuer_did_must_match_verification_method` | Signing with one DID's key while claiming issuance from another is rejected. |
 | `test_credential_signed_by_wrong_key_rejected` | Verifying with the wrong key fails. |
 

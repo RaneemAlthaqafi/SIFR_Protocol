@@ -91,6 +91,13 @@ def test_swap_proof_value_fails():
         verify_credential(cred, pub)
 
 
+def test_mutate_proof_metadata_after_sign_fails():
+    cred, pub, _ = _issue()
+    cred["proof"]["created"] = _future_iso(seconds=2)
+    with pytest.raises(CredentialError, match="signature invalid"):
+        verify_credential(cred, pub)
+
+
 def test_unsupported_proof_type():
     cred, pub, _ = _issue()
     cred["proof"]["type"] = "MadeUp"

@@ -51,6 +51,7 @@ __all__ = [
     "parse_kid",
     "parse_did_document",
     "SUPPORTED_VERIFICATION_TYPES",
+    "SUPPORTED_VERIFICATION_RELATIONSHIPS",
 ]
 
 # Type names accepted in verificationMethod entries. We intentionally accept
@@ -61,6 +62,15 @@ SUPPORTED_VERIFICATION_TYPES = frozenset(
         "Ed25519VerificationKey2020",
         "Ed25519VerificationKey2018",
         "JsonWebKey2020",
+    }
+)
+
+SUPPORTED_VERIFICATION_RELATIONSHIPS = frozenset(
+    {
+        "authentication",
+        "assertionMethod",
+        "capabilityInvocation",
+        "capabilityDelegation",
     }
 )
 
@@ -114,12 +124,24 @@ class VerificationMethod:
 class DidDocument:
     id: str
     verification_methods: tuple[VerificationMethod, ...]
+    relationships: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def find_method(self, kid: str) -> VerificationMethod:
         for m in self.verification_methods:
             if m.id == kid:
                 return m
         raise DidKeyMismatch(f"verification method {kid!r} not found in document {self.id}")
+
+    def find_method_for(self, kid: str, relationship: str) -> VerificationMethod:
+        if relationship not in SUPPORTED_VERIFICATION_RELATIONSHIPS:
+            raise DidDocumentError(f"unsupported verification relationship: {relationship}")
+        method = self.find_method(kid)
+        allowed = self.relationships.get(relationship, ())
+        if kid not in allowed:
+            raise DidKeyMismatch(
+                f"verification method {kid!r} is not authorized for {relationship}"
+            )
+        return method
 
 
 def parse_kid(kid: str) -> tuple[str, str]:
@@ -234,7 +256,41 @@ def parse_did_document(raw: object) -> DidDocument:
     methods: list[VerificationMethod] = []
     for m in methods_raw:
         methods.append(_parse_verification_method_entry(m))
-    return DidDocument(id=did, verification_methods=tuple(methods))
+
+    by_id = {method.id: method for method in methods}
+    relationships: dict[str, tuple[str, ...]] = {}
+    for rel in SUPPORTED_VERIFICATION_RELATIONSHIPS:
+        rel_raw = raw.get(rel)
+        if rel_raw is None:
+            continue
+        if not isinstance(rel_raw, list):
+            raise DidDocumentError(f"{rel} must be a list")
+        rel_ids: list[str] = []
+        for item in rel_raw:
+            if isinstance(item, str):
+                rel_id = item
+            elif isinstance(item, dict):
+                embedded = _parse_verification_method_entry(item)
+                rel_id = embedded.id
+                if rel_id not in by_id:
+                    by_id[rel_id] = embedded
+                    methods.append(embedded)
+            else:
+                raise DidDocumentError(
+                    f"{rel} entries must be verification method ids or objects"
+                )
+            if rel_id not in by_id:
+                raise DidDocumentError(
+                    f"{rel} references unknown verification method {rel_id!r}"
+                )
+            rel_ids.append(rel_id)
+        relationships[rel] = tuple(rel_ids)
+
+    return DidDocument(
+        id=did,
+        verification_methods=tuple(methods),
+        relationships=relationships,
+    )
 
 
 class DidResolver(ABC):
@@ -252,6 +308,16 @@ class DidResolver(ABC):
         did, full_kid = parse_kid(kid)
         doc = self.resolve_document(did)
         method = doc.find_method(full_kid)
+        if method.controller != did:
+            raise DidKeyMismatch(
+                f"verificationMethod controller {method.controller!r} does not match DID {did!r}"
+            )
+        return method.to_public_key()
+
+    def resolve_for(self, kid: str, relationship: str) -> Ed25519PublicKey:
+        did, full_kid = parse_kid(kid)
+        doc = self.resolve_document(did)
+        method = doc.find_method_for(full_kid, relationship)
         if method.controller != did:
             raise DidKeyMismatch(
                 f"verificationMethod controller {method.controller!r} does not match DID {did!r}"

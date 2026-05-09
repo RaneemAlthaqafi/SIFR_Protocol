@@ -1,264 +1,193 @@
 # SIFR v0.5 Limitations Status
 
-This is the canonical breakdown of how each v0.4 limitation has changed in
-v0.5. Three states:
-
-- **Closed**: the v0.4 limitation no longer applies. SIFR can claim the
-  inverse property.
-- **Narrowed**: the limitation is reduced. The narrowed claim is what we
-  *do* support; the residual non-claim is what we still avoid asserting.
-- **Remaining**: the v0.4 non-claim still stands.
-
-No limitation is fully closed in v0.5. Each is narrowed with concrete
-implementation, tests, and documentation. The honest claims below are the
-ones the paper and README state.
+This is the canonical breakdown of how each v0.4 limitation changed in v0.5.
+No limitation is fully closed. Each area is narrowed with concrete code,
+tests, documentation, or operator-runnable harnesses, and the residual
+non-claim remains explicit.
 
 ## Summary
 
 | Area | v0.4 status | v0.5 status |
 |---|---|---|
-| L1 Cryptographic assumptions | Stated as assumptions | **Narrowed** — vectors validated, misuse tests added |
-| L2 Credential scope | VC-inspired, no W3C | **Narrowed** — renamed, status list, JSON-LD context shipped (not loaded) |
-| L3 Identity scope | did:web + did:sifr, b64 only | **Narrowed** — adds did:key, multibase, JWK |
-| L4 Revocation/replay scope | Local verifier only | **Narrowed** — process-shared SQLite/JSONL with signature gate |
-| L5 WASM scope | Calculator + 2 fixtures | **Narrowed** — 7 fixtures, memory cap, hardened runner |
-| L6 Network scope | Localhost + Docker NetEm (delay/loss) | **Narrowed** — 7 profiles incl. jitter/bandwidth, two-bridge harness |
-| L7 Formal scope | TLC bounded + Tamarin symbolic | **Narrowed** — adds Apalache config + runtime trace conformance |
+| L1 Cryptographic assumptions | Stated as assumptions | Narrowed: vectors and misuse tests |
+| L2 Credential scope | VC-inspired, no W3C compliance | Narrowed: SIFR credential type, signed status list |
+| L3 Identity scope | did:web + did:sifr, base64 only | Narrowed: did:key, multibase, JWK, relationship checks |
+| L4 Revocation/replay scope | Local verifier only | Narrowed: process-shared SQLite/JSONL state |
+| L5 WASM scope | Calculator + limited fixtures | Narrowed: no-WASI, fuel, memory, seven fixtures |
+| L6 Network scope | Localhost + v0.3 Docker NetEm | Narrowed: measured v0.3, operator-runnable v0.5 harness |
+| L7 Formal scope | TLC bounded + Tamarin symbolic | Narrowed: Apalache config + trace invariant checks |
+| L8 Production security | Research prototype config | Narrowed: fail-closed config for documented threat model |
 
-## Per-area detail
+## L1 - Cryptographic Assumptions
 
-### L1 — Cryptographic assumptions
+**Narrowed claim.** SIFR validates cryptographic integration against standard
+vectors and misuse tests. It does not prove primitive security.
 
-**v0.4 claim.** Ed25519, SHA-256, Argon2id, AES-GCM assumed secure under
-standard assumptions; their internal security is not proven.
+**Evidence.**
 
-**v0.5 narrowed claim.** *We do not prove primitive security; we validate
-integration against standard vectors and rely on standard cryptographic
-assumptions.*
+- RFC 8032 Ed25519 TEST 1, TEST 2, and TEST 3.
+- FIPS 180-4 SHA-256 short vectors and 1-million-`a` vector.
+- NIST SP 800-38D AES-GCM Test Case 1 and Test Case 3.
+- RFC 9106 Argon2id reference-style parameter checks. The exact RFC A.3
+  secret/ad KAT is not feasible through the current Python binding.
+- Misuse tests for wrong Ed25519 key, modified message, AES-GCM wrong key,
+  wrong AAD, modified ciphertext, modified tag, nonce-reuse consequence, and
+  Argon2 parameter tampering in the keyring.
 
-**Closed sub-items.**
+**Remaining.** Ed25519, SHA-256, AES-GCM, and Argon2id security are assumed
+from their standards and libraries.
 
-- Standard test vectors (RFC 8032, FIPS 180-4, NIST SP 800-38D, RFC 9106)
-  now run in CI.
-- Misuse resistance is exercised: wrong key, modified message, bad AAD,
-  modified ciphertext, modified tag, nonce reuse consequence,
-  Argon2id parameter mismatch.
+## L2 - Credential Scope
 
-**Remaining.** No machine-checked proof of any primitive's security. SIFR
-relies on the cited standards and academic results.
+**Narrowed claim.** SIFR Capability Credentials are VC-shaped, SIFR-native
+signed grants. They are not W3C VC compliant.
 
-**Code & tests.** `docs/crypto_assumptions.md`,
-`tests/test_crypto_vectors.py` (18 tests).
+**Evidence.**
 
-### L2 — Credential scope
+- Primary type `SIFRCapabilityCredential`.
+- `credentialStatus` is bound into the signed credential.
+- Proof metadata is signed with `proofValue` omitted, so proof metadata
+  mutation is rejected.
+- `SIFRStatusList2021` is Ed25519-signed and re-verified on load.
+- Local JSON-LD context document is shipped for inspection.
 
-**v0.4 claim.** Credentials VC-inspired but not W3C VC compliant.
+**Remaining.** No JSON-LD loader, no URDNA2015, no W3C Data Integrity
+interop, no W3C StatusList2021 or Bitstring Status List wire compatibility,
+and no external VC verifier interop.
 
-**v0.5 narrowed claim.** *SIFR Capability Credentials* are signed Ed25519
-grants whose JSON body resembles a W3C Verifiable Credential. They are
-NOT W3C VC compliant: SIFR does not load JSON-LD contexts and does not
-perform URDNA2015. SIFR ships `SIFRStatusList2021`, a bitmap-based
-credential-status mechanism modelled on but not interoperable with W3C
-StatusList2021.
+## L3 - Identity Scope
 
-**Closed sub-items.**
+**Narrowed claim.** SIFR supports the documented DID profile:
+`did:web`, `did:key`, and local `did:sifr` for Ed25519 keys encoded as
+`publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk`, with documented
+relationship checks for `authentication`, `assertionMethod`,
+`capabilityInvocation`, and `capabilityDelegation`.
 
-- Primary type renamed to `SIFRCapabilityCredential`; VC-shape kept for
-  ergonomic recognition only.
-- Bitmap status list signed with Ed25519, signature re-verified on load.
-- `credentialStatus` field bound into the credential proof — index
-  cannot be swapped after issuance.
-- SIFR-local JSON-LD context document shipped at
-  `docs/contexts/sifr-credential-v1.jsonld` for offline inspection.
+**Evidence.**
 
-**Remaining.** No JSON-LD context loader, no URDNA2015 normalization, no
-W3C `StatusList2021Credential` wire compatibility.
+- `did:key` canonical Ed25519 multicodec resolver.
+- Multibase Ed25519 validation.
+- JWK `OKP` / `Ed25519` / 32-byte `x` validation, with padded `x` rejected.
+- Type/format binding rules and multi-format rejection.
+- `resolve_for(kid, relationship)` enforces documented relationships.
 
-**Code & tests.** `sifr/credential_status.py`, updated `sifr/credentials.py`,
-`tests/test_credential_status.py` (8 new tests), existing
-`tests/test_credentials.py` still passes (15 tests).
+**Remaining.** No full DID Core compliance, no JSON-LD processing, no
+non-Ed25519 curves, and no methods beyond `did:web`, `did:key`, and
+`did:sifr`.
 
-### L3 — Identity scope
+## L4 - Revocation and Replay Scope
 
-**v0.4 claim.** Supports `did:web` and local `did:sifr` with selected
-Ed25519 key formats; not the full DID ecosystem.
+**Narrowed claim.** SIFR supports process-shared replay and revocation through
+durable SQLite-WAL verifier state and signed JSONL revocation logs.
 
-**v0.5 narrowed claim.** *SIFR supports `did:web`, `did:key`, and local
-`did:sifr` for Ed25519 keys encoded as `publicKeyBase64`,
-`publicKeyMultibase`, or `publicKeyJwk`.*
+**Evidence.**
 
-**Closed sub-items.**
+- Replay cache uses WAL, busy timeout, and
+  `PRIMARY KEY(sender, session, msgid)`.
+- Cross-process and restart replay tests pass.
+- Four-process same-message race accepts exactly one message.
+- Revocation log reload verifies signatures and rejects tampered or wrong-type
+  records.
 
-- `did:key` resolver implemented with canonical-form check
-  (`sifr/did/did_key.py`).
-- `publicKeyMultibase` parsing with Ed25519 multicodec validation
-  (`sifr/did/encodings.py`).
-- `publicKeyJwk` parsing with `OKP` / `Ed25519` / 32-byte `x` validation.
-- Type/format binding rules enforced (e.g., `JsonWebKey2020` ↔ JWK only).
-- Multi-format double-key entries rejected at parse time.
+**Remaining.** No Byzantine consensus, no global revocation propagation, no
+multi-writer revocation-log locking, and replay database rows are durable
+state rather than cryptographically signed rows.
 
-**Remaining.** Other curves (X25519, secp256k1, P-256). Other DID methods
-(`did:ion`, `did:ethr`, `did:peer`, …).
+## L5 - WASM Scope
 
-**Code & tests.** `sifr/did/encodings.py`, `sifr/did/did_key.py`, updated
-`sifr/did/__init__.py`, updated `docs/did_method.md`,
-`tests/test_did_key_formats.py` (21 new tests), existing
-`tests/test_did_resolution.py` still passes (22 tests).
+**Narrowed claim.** SIFR enforces a no-WASI, fuel-bounded, memory-capped,
+fresh-store WASM policy tested against the calculator and adversarial fixtures.
 
-### L4 — Revocation and replay scope
+**Evidence.**
 
-**v0.4 claim.** Revocation and replay protection local to the configured
-verifier state.
+- No WASI imports are linked.
+- Fresh `Store` per call.
+- Fuel limits and fuel-exhaustion tests.
+- Memory cap through `Store.set_limits` when supported by wasmtime-py.
+- Bool arguments rejected.
+- Fixtures cover filesystem, environment, socket/network import, infinite
+  loop, memory growth abuse, missing export, and unreachable trap.
 
-**v0.5 narrowed claim.** *SIFR supports process-shared replay and
-revocation through a durable SQLite-WAL backed verifier state and a
-signed-JSONL revocation log re-verified at load time. SIFR does not
-implement Byzantine consensus or global revocation propagation between
-independent verifier deployments.*
+**Remaining.** Memory cap is best effort on wasmtime builds without
+`Store.set_limits`. Structured invocation evidence is last-call, success-only,
+and not durable audit provenance. No arbitrary untrusted-code safety,
+side-channel resistance, or multi-tenant isolation claim.
 
-**Closed sub-items.**
+## L6 - Network Scope
 
-- Replay cache opens SQLite in WAL mode with a 5 s busy-timeout; the
-  `PRIMARY KEY(sender, session, msgid)` constraint serialises concurrent
-  writers across processes.
-- Replay records persist across restart (existing instance + new
-  instance share the same store).
-- Cross-process race: 4-process concurrent test asserts exactly one
-  ACCEPT.
-- `RevocationRegistry.reload()` re-reads the JSONL into the in-memory
-  map; signatures re-checked.
-- Tampered log line is rejected at load time.
-- Wrong-type entry in the log is rejected at load time.
+**Narrowed claim.** SIFR has measured v0.3 QUIC results for loopback, Docker
+bridge, 20 ms delay, 1% loss, and 5% loss. SIFR also ships an
+operator-runnable v0.5 two-bridge Docker/NetEm harness with seven profiles.
 
-**Remaining.** No Byzantine consensus. No total ordering across
-deployments. No multicast / sync-protocol between hosts.
+**Evidence.**
 
-**Code & tests.** `sifr/replay.py` (WAL+busy-timeout),
-`sifr/revocation.py` (`reload()`),
-`tests/test_distributed_replay.py` (4 tests),
-`tests/test_distributed_revocation.py` (4 tests),
-`docs/revocation_replay_scope.md`.
+- Committed v0.3 CSV under `benchmarks/results/v0.3/quic_network_latency.csv`.
+- v0.5 compose file with client/server bridges and trunk bridge.
+- NetEm runner supports delay, jitter, loss, and bandwidth cap.
+- Python driver records profile config, Docker versions, OS, commit, CSV, and
+  metadata when run.
 
-### L5 — WASM scope
+**Remaining.** No v0.5 two-network result CSV is committed. No two-machine,
+WAN, public-cloud, NAT traversal, mobile-network, or Internet-scale evaluation
+is claimed.
 
-**v0.4 claim.** WASM evidence covers a calculator module and adversarial
-fixtures. Does not establish arbitrary untrusted-code safety.
+## L7 - Formal Scope
 
-**v0.5 narrowed claim.** *SIFR enforces a no-WASI, fuel-bounded,
-fresh-store, memory-capped WASM policy tested against the calculator
-module and a documented set of adversarial fixtures (filesystem,
-environment, socket, infinite loop, memory-grow abuse, missing-export,
-unreachable trap).*
+**Narrowed claim.** TLA+ invariants are bounded-proven by TLC, Tamarin lemmas
+are symbolic-proven in the Dolev-Yao model, Apalache is symbolic-checkable
+through an operator-runnable config, and Python traces are trace-checked for
+the same invariants.
 
-**Closed sub-items.**
+**Evidence.**
 
-- Memory cap via `Store.set_limits(memory_size=...)`; default 16 pages
-  (1 MiB).
-- New fixtures: `env_attempt.wat`, `network_attempt.wat`,
-  `memory_grow_abuse.wat`, `trap_unreachable.wat`, `missing_export.wat`.
-- Bool args explicitly rejected (Python's `bool` is a subtype of `int`,
-  so without this gate one could sneak `True`/`False` past type checks).
-- Calculator parity, fuel-consumed evidence, state isolation across
-  calls — all reasserted with the hardened store.
+- TLC: 9 invariants, 11,601 states, depth 7, no error.
+- Tamarin: 5/5 lemmas verified with zero wellformedness warnings.
+- `formal/apalache.cfg` ships the documented command; no Apalache success log
+  is committed.
+- `sifr/trace_conformance.py` checks the TLA+ invariants over implementation
+  traces and rejects counterexample traces.
 
-**Remaining.** No arbitrary-untrusted-code-safety claim. No side-channel
-resistance. No multi-tenant isolation.
+**Remaining.** Trace conformance is invariant checking, not full
+transition-relation checking. There is no TLAPS/Coq proof, no machine-checked
+Python-to-TLA+ simulation relation, and no implementation-refinement proof.
 
-**Code & tests.** `sifr/wasm_runner.py` (memory cap +
-`_new_store()` helper), 5 new WAT fixtures,
-`tests/test_wasm_sandbox_hardening.py` (18 new tests), existing
-`tests/test_wasm_runner.py` still passes (11 tests).
+## L8 - Production Security Scope
 
-### L6 — Network scope
+**Narrowed claim.** SIFR is production-hardened for the documented deployment
+model and threat model.
 
-**v0.4 claim.** QUIC evaluated on localhost and a single-host Docker
-bridge with NetEm impairment.
+**Evidence.**
 
-**v0.5 narrowed claim.** *SIFR is evaluated under single-host emulated
-network impairment with a two-bridge Docker harness. Internet-scale,
-multi-host, NAT-traversal, and mobile-network evaluation are out of
-scope.*
+- `docs/production_security_model.md` documents single-verifier, clustered,
+  multi-tenant, and development/demo modes.
+- `sifr/config.py` rejects demo keys outside explicit demo mode and requires
+  non-demo key storage in production modes.
+- Payload-size limits, replay-window configuration, structured error
+  redaction, and optional rate-limit parameters are validated.
+- `docs/deployment_guide.md` and `docs/incident_response.md` document
+  operator setup and response procedures.
 
-**Closed sub-items.**
+**Remaining.** No full-security claim. No HSM-grade key isolation, enterprise
+PKI, DDoS resistance, or host-compromise resistance. Multi-tenant data-plane
+isolation is assumed from the hosting service.
 
-- Two-bridge Compose file: client and server live on disjoint bridges
-  joined by a trunk bridge; impairment applied on the trunk-facing
-  interface (`docker/compose_quic_two_networks.yml`).
-- NetEm wrapper extended with jitter and TBF bandwidth profiles
-  (`docker/quic_runner.py`).
-- Driver script sweeps 7 profiles (baseline, delay20, delay100, loss1,
-  loss5, jitter, bandwidth-10Mbit) and aggregates results
-  (`benchmarks/bench_quic_network.py`).
-- Documentation explicitly states this is NOT in CI because public
-  runners typically lack `NET_ADMIN`.
+## Paper-Ready Honest Claim Set
 
-**Remaining.** No two-machine or WAN run executed inside this artifact.
-No public-cloud VM evaluation. The harness ships; the operator runs it.
-
-**Code & docs.** `docker/compose_quic_two_networks.yml`, updated
-`docker/quic_runner.py`, `benchmarks/bench_quic_network.py`,
-updated `docs/quic_network_evaluation.md`.
-
-### L7 — Formal scope
-
-**v0.4 claim.** TLA+ checking is bounded; Tamarin abstracts crypto and
-includes a replay-cache restriction; no Coq/TLAPS refinement proof.
-
-**v0.5 narrowed claim.** *Every TLA+ invariant is bounded-proven by TLC
-and trace-checked over realistic Python executions of the SIFR
-implementation. SIFR ships an Apalache configuration for
-operator-runnable symbolic bounded checking, but does not claim an
-Apalache proof until a successful run log is committed. SIFR does not
-have an implementation-refinement proof.*
-
-**Closed sub-items.**
-
-- `formal/apalache.cfg` shipped for symbolic re-checking by Apalache-equipped
-  reviewers.
-- `sifr/trace_conformance.py` provides a Python translation of every
-  TLA+ invariant.
-- `tests/test_formal_trace_conformance.py` runs three real-flow positive
-  traces (issue→consume; revoke-then-blocked; replay-blocked) plus nine
-  hand-crafted counterexample traces — proves the checker is sensitive,
-  not vacuously satisfied.
-- `docs/formal_scope.md` defines the verb vocabulary
-  (`bounded-proven`, `symbolic-checkable`, `inductively-proven`,
-  `trace-checked`) so paper claims map to verifiable evidence.
-- `docs/model_code_traceability_v0_4.md` references the v0.5 trace
-  bridge.
-
-**Remaining.** No TLAPS/Coq inductive proof. No machine-checked
-simulation relation from Python state to TLA+ state. No quantified bound
-on the gap between trace coverage and full implementation behavior.
-
-**Code & tests.** `sifr/trace_conformance.py`,
-`tests/test_formal_trace_conformance.py` (12 tests),
-`formal/apalache.cfg`, `docs/formal_scope.md`.
-
-## Final v0.5 honest claim set (paper-ready)
-
-1. *We do not prove primitive security; we validate integration against
-   standard vectors and rely on standard cryptographic assumptions.*
-
-2. *SIFR Capability Credentials resemble W3C VC shape but are not W3C VC
-   compliant; SIFR ships `SIFRStatusList2021` modelled on but not
-   interoperable with W3C StatusList2021.*
-
-3. *SIFR supports `did:web`, `did:key`, and local `did:sifr` for Ed25519
-   keys in `publicKeyBase64`, `publicKeyMultibase`, or `publicKeyJwk`.*
-
-4. *SIFR supports process-shared replay and revocation through a durable
-   SQLite-WAL verifier state, but does not implement Byzantine consensus
-   or global revocation propagation.*
-
-5. *SIFR enforces a no-WASI, fuel-bounded, memory-capped, fresh-store
-   WASM policy tested against calculator and adversarial fixtures.*
-
-6. *SIFR is evaluated under single-host emulated network impairment, not
-   Internet-scale deployment.*
-
-7. *Every TLA+ invariant is bounded-proven by TLC and trace-checked over
-   Python executions. SIFR ships an Apalache configuration for
-   operator-runnable symbolic bounded checking, but does not claim an
-   Apalache proof until a successful run log is committed. There is no
-   implementation-refinement proof.*
+1. SIFR is production-hardened for the documented deployment model and threat
+   model; it is not a production standard and does not claim full security.
+2. SIFR validates cryptographic integration against standard vectors and
+   reference-style Argon2id parameter checks; primitive security is assumed.
+3. SIFR Capability Credentials are VC-shaped but not W3C VC compliant.
+4. SIFR supports the documented DID profile, not full DID ecosystem
+   compliance.
+5. SIFR supports process-shared replay and revocation through durable
+   SQLite-WAL state and signed JSONL logs; it does not implement consensus or
+   global revocation.
+6. SIFR enforces a no-WASI, fuel-bounded, memory-capped, fresh-store WASM
+   policy tested against calculator and adversarial fixtures.
+7. SIFR has measured v0.3 single-host Docker/NetEm delay/loss results and
+   ships an operator-runnable v0.5 two-bridge seven-profile harness; it does
+   not claim Internet-scale evaluation.
+8. TLA+ invariants are bounded-proven by TLC, Tamarin lemmas are
+   symbolic-proven, Python traces are trace-checked, and Apalache is
+   symbolic-checkable only until a successful log is committed.

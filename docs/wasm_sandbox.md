@@ -88,7 +88,7 @@ The following modules live in `tests/fixtures/wasm_modules/` and are exercised o
 
 ## What we explicitly do NOT claim
 
-- Arbitrary untrusted code safety. The sandbox is verified for the calculator module and the two adversarial fixtures. Other modules require their own threat-model review.
+- Arbitrary untrusted code safety. The sandbox is verified for the calculator module and seven adversarial fixtures. Other modules require their own threat-model review.
 - Side-channel resistance (timing, cache, Spectre-class attacks). wasmtime's mitigations are partial and platform-dependent.
 - Memory protection beyond what wasmtime provides. The host is in the same process; a wasmtime CVE could be exploited.
 - A multi-tenant sandbox. WasmToolRunner is intended for one trust domain at a time.

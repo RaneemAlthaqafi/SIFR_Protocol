@@ -17,7 +17,7 @@ Expected paper class:
 \documentclass[runningheads]{llncs}
 ```
 
-ICWS page checked on 2026-05-09:
+ICWS page checked on 2026-05-09: https://www.servicessociety.org/icws
 
 - Research/Application manuscripts: 15 pages, LNCS style.
 - Short Paper manuscripts: 8 pages, LNCS style.

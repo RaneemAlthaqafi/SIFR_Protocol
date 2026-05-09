@@ -81,6 +81,22 @@ def test_did_key_resolves_and_verifies():
     assert verify_message(signed, resolver)
 
 
+def test_did_key_authorizes_standard_relationships():
+    _, pub = generate_keypair()
+    did = ed25519_pub_to_did_key(pub)
+    resolver = DidKeyResolver()
+    doc = resolver.resolve_document(did)
+    kid = doc.verification_methods[0].id
+    for relationship in (
+        "authentication",
+        "assertionMethod",
+        "capabilityInvocation",
+        "capabilityDelegation",
+    ):
+        resolved = resolver.resolve_for(kid, relationship)
+        assert resolved.public_bytes_raw() == pub.public_bytes_raw()
+
+
 def test_did_key_round_trip_via_encoder():
     _, pub = generate_keypair()
     did = ed25519_pub_to_did_key(pub)
@@ -264,6 +280,26 @@ def test_doc_rejects_malformed_jwk_kty():
                 "type": "JsonWebKey2020",
                 "controller": "did:sifr:gina",
                 "publicKeyJwk": {"kty": "RSA", "crv": "Ed25519", "x": "x"},
+            }
+        ],
+    }
+    with pytest.raises(DidDocumentError, match="invalid publicKeyJwk"):
+        parse_did_document(raw_doc)
+
+
+def test_doc_rejects_padded_jwk_x():
+    _, pub = generate_keypair()
+    did = "did:sifr:padded"
+    jwk = ed25519_pub_to_jwk(pub)
+    jwk["x"] = jwk["x"] + "="
+    raw_doc = {
+        "id": did,
+        "verificationMethod": [
+            {
+                "id": f"{did}#k1",
+                "type": "JsonWebKey2020",
+                "controller": did,
+                "publicKeyJwk": jwk,
             }
         ],
     }
