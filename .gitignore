@@ -29,3 +29,4 @@ benchmarks/results/environment.json
 benchmarks/results/latency.csv
 benchmarks/results/payload_size.csv
 benchmarks/results/signature_overhead.csv
+docker/out/

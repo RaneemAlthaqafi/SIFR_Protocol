@@ -1,0 +1,6 @@
+label,n,avg_rtt_ms,p95_rtt_ms
+loopback_baseline,500,0.4211,n/a
+container_baseline,100,0.6025,0.9955
+container_delay_20ms,100,22.0297,22.7722
+container_loss_1pct,100,0.9842,1.1868
+container_loss_5pct,60,2.4753,31.8682

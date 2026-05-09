@@ -423,7 +423,7 @@ P3 & VC-inspired credentials & \texttt{sifr/credentials.py} & \texttt{test\_cred
 P4 & Capability revocation & \texttt{sifr/revocation.py} & \texttt{test\_revocation.py}, A12 & TLC I4 & per-process & proven\\
 P5 & Replay protection & \texttt{sifr/replay.py} & \texttt{test\_replay.py}, A13-A17 & TLC I6 & per-process cache & proven\\
 P6 & DID resolution + key binding & \texttt{sifr/did/}, \texttt{crypto.verify\_message} & \texttt{test\_did\_resolution.py}, A08-A09 & \texttt{did\_resolution.csv} & no multibase / JWK & partial\\
-P7 & QUIC transport & \texttt{sifr/transport/quic.py} & \texttt{test\_quic\_transport.py}, A25-A27 & \texttt{quic\_latency.csv} & loopback only & partial\\
+P7 & QUIC transport (loopback + emulated network) & \texttt{sifr/transport/quic.py}, \texttt{docker/} & \texttt{test\_quic\_transport.py}, A25-A27 & \texttt{quic\_latency.csv}, \texttt{quic\_network\_latency.csv} & single-host emulated & proven\\
 P8 & WASM tool isolation & \texttt{sifr/wasm\_runner.py} & \texttt{test\_wasm\_runner.py}, A23-A24 & \texttt{wasm\_overhead.csv} & calculator + 2 fixtures only & partial\\
 P9 & Audit DAG integrity & \texttt{sifr/audit\_dag.py} & \texttt{test\_audit\_dag.py}, A20-A21 & impl-only I10 & no formal model & proven\\
 P10 & Adversary rejection (30 cases) & \texttt{tests/test\_v0\_3\_adversary.py} & 30/30 cases A01-A30 & \texttt{adversary\_rejection.json} & not penetration-testing & proven\\
@@ -443,6 +443,38 @@ P14 & Reproducible figure pipeline & \texttt{scripts/generate\_all\_figures.py} 
 \includegraphics[width=\linewidth]{figures/benchmark_v0_3_adversary.png}
 \caption{SIFR v0.3 strict adversary evaluation: 30 controlled cases, time-to-reject on log scale, color-coded by rejecting error class. Cases marked ``pytest only'' (A15, A25-A27) are validated by \texttt{pytest} fixtures whose timing is dominated by setup; their pass/fail is the evidence, not their latency.}
 \label{fig:adversary_v0_3}
+\end{figure}
+
+\subsection{v0.3 QUIC beyond-loopback evaluation}
+v0.3 closes the loopback-only gap by adding a Docker-Compose + NetEm pipeline (\texttt{docker/Dockerfile.quic\_node}, \texttt{docker/compose\_quic\_netem.yml}, \texttt{scripts/run\_quic\_network\_bench.sh}) that runs the same sign+verify+DAG round-trip workload across two containers on a Docker bridge network, with optional \texttt{tc qdisc} NetEm impairment. Containers receive \texttt{cap\_add: NET\_ADMIN} so the entrypoint can install the qdisc before the QUIC handshake.
+
+Five configurations are measured (Table~\ref{tab:quic_net} and Figure~\ref{fig:quic_net}): loopback baseline, container baseline (no impairment), \texttt{netem delay 20 ms}, \texttt{netem loss 1\%}, and \texttt{netem loss 5\%}. The 20 ms delay shows up as $\sim$22 ms RTT (delay applied per-packet, baseline overhead added). 1\% packet loss adds $\sim$50\% mean RTT; 5\% loss spikes the p95 to 31.87 ms as QUIC retransmissions dominate the worst-case timing. We label this an \emph{emulated network evaluation}; it is not a multi-host or Internet-scale test. See \texttt{docs/quic\_network\_evaluation.md} for full methodology and explicit non-claims.
+
+\begin{table}[t]
+\caption{SIFR v0.3 QUIC RTT across loopback and Docker + NetEm impairments.}
+\label{tab:quic_net}
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+Configuration & n & mean RTT (ms) & p95 RTT (ms)\\
+\midrule
+loopback baseline       & 500 & 0.42 & ---\\
+container baseline      & 100 & 0.60 & 1.00\\
+container + 20 ms delay & 100 & 22.03 & 22.77\\
+container + 1\% loss    & 100 & 0.98 & 1.19\\
+container + 5\% loss    &  60 & 2.48 & 31.87\\
+\bottomrule
+\end{tabular}
+\par\medskip
+\footnotesize{Source: \texttt{benchmarks/results/v0.3/quic\_network\_latency.csv}.}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/benchmark_quic_network.png}
+\caption{QUIC RTT (mean and p95) across five configurations: loopback, container baseline, +20\,ms delay, +1\% loss, +5\% loss. NetEm injects per-packet impairment via \texttt{tc qdisc} inside each container. Hatched bars are p95.}
+\label{fig:quic_net}
 \end{figure}
 
 \subsection{v0.3 formal model strengthening}

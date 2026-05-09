@@ -1,0 +1,38 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.quic_node
+    image: sifr_quic_node:v0.3
+    container_name: sifr_quic_server
+    environment:
+      SIFR_NODE_ROLE: server
+    cap_add:
+      - NET_ADMIN
+    networks:
+      sifrnet:
+        aliases: [server]
+
+  client:
+    image: sifr_quic_node:v0.3
+    container_name: sifr_quic_client
+    depends_on:
+      - server
+    environment:
+      SIFR_NODE_ROLE: client
+      SIFR_PEER_HOST: server
+      SIFR_PEER_PORT: "4433"
+      SIFR_BENCH_N: "${SIFR_BENCH_N:-100}"
+      SIFR_BENCH_LABEL: "${SIFR_BENCH_LABEL:-container_baseline}"
+      SIFR_NETEM_DELAY_MS: "${SIFR_NETEM_DELAY_MS:-}"
+      SIFR_NETEM_LOSS_PCT: "${SIFR_NETEM_LOSS_PCT:-}"
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./out:/out
+    networks:
+      - sifrnet
+
+networks:
+  sifrnet:
+    driver: bridge

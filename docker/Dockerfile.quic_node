@@ -1,0 +1,13 @@
+# Minimal SIFR QUIC node for the v0.3 beyond-loopback evaluation.
+FROM python:3.11-slim
+
+# iproute2 supplies `tc` for NetEm impairment.
+RUN apt-get update && apt-get install -y --no-install-recommends iproute2 && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+RUN pip install --no-cache-dir aioquic==1.3.0 cryptography>=42.0.0 numpy>=1.26.0 argon2-cffi>=23.1.0 httpx>=0.27.0 wasmtime>=20.0.0
+COPY sifr /app/sifr
+COPY docker/quic_node.py /app/quic_node.py
+COPY docker/quic_runner.py /app/quic_runner.py
+
+CMD ["python", "/app/quic_node.py"]

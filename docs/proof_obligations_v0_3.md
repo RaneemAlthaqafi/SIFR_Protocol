@@ -110,17 +110,17 @@ Status legend:
 
 | Field | Value |
 |---|---|
-| Claim | A real `aioquic.QuicConnection` carries length-prefixed canonical-JSON frames over an ALPN-negotiated `sifr/0.2` stream; trap-acceptance tests rule out a TCP look-alike. |
-| Implementation files | `sifr/transport/quic.py`, `sifr/transport/_certs.py` |
+| Claim | A real `aioquic.QuicConnection` carries length-prefixed canonical-JSON frames over an ALPN-negotiated `sifr/0.2` stream; trap-acceptance tests rule out a TCP look-alike. RTT measured across loopback, two-container Docker bridge, and NetEm-impaired (delay 20 ms; loss 1%; loss 5%) configurations. |
+| Implementation files | `sifr/transport/quic.py`, `sifr/transport/_certs.py`, `docker/Dockerfile.quic_node`, `docker/quic_node.py`, `docker/compose_quic_netem.yml`, `scripts/run_quic_network_bench.sh`, `scripts/generate_quic_network_figure.py` |
 | Positive tests | `tests/test_quic_transport.py` (5 tests) |
 | Negative tests | A25 (malformed frame), A26 (duplicate over QUIC), A27 (revoked over QUIC) in `tests/test_v0_3_adversary.py` |
-| Benchmarks | `benchmarks/results/v0.3/quic_latency.csv` (loopback) |
+| Benchmarks | `benchmarks/results/v0.3/quic_latency.csv` (loopback); `benchmarks/results/v0.3/quic_network_latency.csv` (5-config Docker + NetEm) |
 | Formal artifact | n/a |
-| Raw evidence files | as above |
-| Paper locations | §VI.E QUIC Transport |
-| Reproduction command | `bash scripts/reproduce_all.sh` |
-| Proof status | **partial** — proven on `127.0.0.1` loopback with self-signed RSA-2048 certificates. |
-| Residual limitations | **No beyond-loopback evaluation in v0.3.** Docker was available locally during this session but a Docker-Compose+NetEm impairment test was not built in time. No real-network, NAT, packet-loss, jitter, or two-host run. This is the largest gap in v0.3. |
+| Raw evidence files | both CSVs above; `paper/figures/benchmark_quic_network.png`; `docs/quic_network_evaluation.md` |
+| Paper locations | §VI.E QUIC Transport; §Claims and Evidence Map row P7; §Discussion |
+| Reproduction command | `bash scripts/run_quic_network_bench.sh` (requires Docker daemon + `NET_ADMIN`) |
+| Proof status | **proven** for loopback + emulated network (single-host Docker bridge with NetEm impairment). |
+| Residual limitations | Single-host evaluation; not a multi-host, WAN, or Internet-scale test. Labeled "emulated network evaluation" per the v0.3 spec rule. NetEm impairments cover delay and uniform loss only; reordering, duplication, jitter distributions, and bandwidth caps were not exercised. |
 
 ## P8 WASM tool isolation
 
@@ -240,10 +240,10 @@ Status legend:
 
 | Status | Count | Claims |
 |---|---|---|
-| proven | 9 | P1, P2, P4, P5, P9, P10, P11, P12, P13, P14 |
-| partial | 4 | P3 (VC-inspired), P6 (no multibase/JWK), P7 (loopback only), P8 (no network/env/memgrow fixtures) |
+| proven | 11 | P1, P2, P4, P5, P7 (Docker + NetEm), P9, P10, P11, P12, P13, P14 |
+| partial | 3 | P3 (VC-inspired, not W3C VC), P6 (no DID multibase/JWK), P8 (calculator + 2 fixtures only) |
 | future | 0 | — |
 
-The artifact carries strong evidence for everything it implements. The four `partial` rows are honest scope boundaries; none is silently overclaimed in the paper.
+The three `partial` rows are explicit scope boundaries documented in `docs/credential_model.md`, `docs/did_method.md`, and `docs/wasm_sandbox.md`. None is silently overclaimed in the paper.
 
-The largest single residual gap is **P7 (QUIC beyond loopback)** — Docker became available during the session but a Docker-Compose+NetEm test was not built in time. This is the highest-priority follow-up item.
+P7 was promoted from `partial` (loopback only) to `proven` after building the Docker-Compose + NetEm pipeline (`docker/`, `scripts/run_quic_network_bench.sh`) and producing `benchmarks/results/v0.3/quic_network_latency.csv` across five configurations.
