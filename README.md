@@ -2,10 +2,6 @@
 
 SIFR, Secure Interchange for Federated Reasoning, is a research artifact for structured, signed, capability-checked AI-agent communication with replay protection, revocation, DID-based key lookup, VC-inspired capability credentials, WASM tool execution, QUIC transport, audit-DAG lineage, and a bounded TLA+ authorization model.
 
-Researchers:
-
-- Raneem Althaqafi, althaqafi.raneem@gmail.com
-- Majid Althaqafi, imajedmuhammad@gmail.com
 
 ## Start Here For Reviewers
 
