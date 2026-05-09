@@ -1,18 +1,18 @@
 {
-  "version": "v0.3",
-  "git_commit": "6be4b0118d96d33676fe52d0dfe2950251b9bccb",
-  "git_describe": "v0.2.0-6-g6be4b01",
-  "timestamp_utc": "2026-05-09T01:38:19Z",
+  "version": "v0.3.1",
+  "git_commit": "574b06212723c2e79f8eaddfc4b255fb7994ab8e",
+  "git_describe": "v0.3.0-1-g574b062",
+  "timestamp_utc": "2026-05-09T01:56:05Z",
   "artifact": {
-    "zip": "sifr-v0.3-research-artifact.zip",
-    "sha256": "6b5da9afa67cb4720bdbe48b191f9f2298695122664705b191b7f92f5bd7cc7a",
+    "zip": "sifr-v0.3.1-research-artifact.zip",
+    "sha256": "a39e438f7895f9a1b74fcbddb524e801af6b53bb9f38640e4d1894ce6d079869",
     "files": 193,
-    "bytes": 1289820
+    "bytes": 1291433
   },
   "overleaf": {
-    "zip": "sifr-v0.3-overleaf-ready.zip",
-    "sha256": "4a7ad63369f8521c61094518a1b37c34581b7cc12ea9406a3943d541ff26f288",
+    "zip": "sifr-v0.3.1-overleaf-ready.zip",
+    "sha256": "8695764790c66209645b289370550ee53ce0fa5f4239f3da9c2a4d16d03d761c",
     "files": 23,
-    "bytes": 1096898
+    "bytes": 1097344
   }
 }

@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.3.1] — 2026-05-09
+
+### Release hardening
+- `pyproject.toml`: explicit `[tool.setuptools.packages.find]` with `include = ["sifr*"]` and explicit excludes for the sibling top-level directories (`tests`, `paper`, `docs`, `formal`, `review`, `benchmarks`, `scripts`, `docker`, `wasm`). Closes the "Multiple top-level packages discovered in a flat-layout" install failure on a clean clone. Project name normalized to `sifr`, version pinned to `0.3.1`.
+- `.github/workflows/test.yml`: pytest now runs with `SIFR_TLC_FROZEN=1` so the formal-artifact freshness checks fail-closed in CI.
+- `formal/output/{tlc_output.txt,tlc_metadata.json,model_hashes.json}`: re-run TLC against the v0.3 model. 11,601 distinct states at depth 7, no error. Hashes refreshed.
+- `paper/main.tex`: abstract, claim-evidence map intro, discussion, and conclusion all consistently report v0.3 numbers (30-case strict adversary suite, 9 invariants / 11,601 states, QUIC evaluated on loopback AND single-host Docker bridge with NetEm impairment). The Implementation Status table separates v0.2 (11 attacks) from v0.3 strict (30 attacks). The v0.2 Security Hardening section retains its historical v0.2 numbers as labeled narrative. Stale "loopback only" / "276,205 states" / "7 invariants" / "11-attack" claims removed from the current-claim text.
+- `benchmarks/results/v0.3/manifest.json`: regenerated to point at the v0.3.1 substance commit; `git_describe` no longer marked dirty; SHA-256 hashes for all 8 result files including `quic_network_latency.csv`.
+- `review/v0_3_release_manifest.json`: regenerated for v0.3.1; SHA-256 + byte size + file count for both `sifr-v0.3.1-research-artifact.zip` and `sifr-v0.3.1-overleaf-ready.zip`.
+- `scripts/build_release_zips.py` parameterised by `SIFR_RELEASE_VERSION` (default `v0.3.1`).
+- `scripts/write_benchmark_manifest.py` and `scripts/build_release_zips.py`: `--dirty` removed from `git describe` so manifests reflect a clean tree.
+- New `review/v0_3_1_strict_quality_gate.md` with exact reproduction commands and observed outputs (20/20 Yes).
+
+### What did NOT change
+- Per the release-hardening scope: no new research features, no new tests, no new figures beyond the regenerated ones, no new claims. Every change is a freshness, packaging, paper-consistency, or release-mechanics fix.
+
+## [0.3.0] — 2026-05-09
+
+### Strict-evidence layer
+- `tests/test_v0_3_adversary.py`: 30 enumerated controlled adversary cases (A01-A30) covering payload/sender/receiver/cap-action tampering, credential-layer mutations, key-layer swaps, replay (incl. modified-signature, persistent-restart, stale, future), oversized payload, malformed frame, missing/tampered DAG node, unauthorized tool, WASM filesystem and infinite-loop, QUIC malformed frame / duplicate / revoked-credential, TensorFrame shape-bomb / invalid-dtype / payload-length-mismatch.
+- `examples/demo_v0_3_adversary_cases.py` + `benchmarks/bench_v0_3_adversary_rejection.py`.
+- `sifr/crypto.py:verify_message`: kid DID prefix must equal `sender_id` when a resolver is in use. Closes the swap-kid-to-valid-but-unauthorized-key attack.
+
+### Hardened formal model
+- `formal/sifr_capability.tla`: added `Issuers` and `Kids` state, `RevokeKey` action, two new invariants (`NoConsumeWithWrongIssuer` and `NoConsumeWithRevokedKey`). Total: 9 TLC-checked invariants, 11,601 distinct states verified.
+- `formal/output/{tlc_output.txt,tlc_metadata.json,model_hashes.json}`: TLC artifacts.
+
+### QUIC beyond loopback
+- `docker/Dockerfile.quic_node`, `docker/compose_quic_netem.yml`, `docker/quic_node.py`: containerised SIFR QUIC nodes with `NET_ADMIN` for `tc qdisc` NetEm.
+- `scripts/run_quic_network_bench.sh`: orchestrates loopback baseline, container baseline, +20 ms delay, +1% loss, +5% loss configurations.
+- `benchmarks/results/v0.3/quic_network_latency.csv`, `paper/figures/benchmark_quic_network.png`, `docs/quic_network_evaluation.md`.
+
+### Reproducibility
+- `benchmarks/results/{v0.1,v0.2,v0.3}/`: versioned result directories.
+- `benchmarks/bench_io.py`: shared `versioned_results_dir()` helper.
+- `scripts/run_all_benchmarks.sh`, `scripts/write_benchmark_manifest.py`, `scripts/generate_all_figures.py`, `scripts/refresh_formal_metadata.py`, `scripts/build_release_zips.py`.
+- `scripts/reproduce_all.{sh,ps1}`: 9-step fail-closed master script.
+
+### Documentation
+- `docs/proof_obligations_v0_3.md` — P1-P14 obligation table.
+- `review/v0_3_strict_quality_gate.md` — 20-item strict gate.
+- `paper/main.tex` — `\section{Claims and Evidence Map (v0.3)}` with 14-row table.
+
 ## [0.2.0] — 2026-05-09
 
 ### Identity (Phase 1)

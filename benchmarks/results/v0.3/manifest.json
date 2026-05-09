@@ -1,9 +1,9 @@
 {
   "version": "v0.3",
   "command": "scripts/run_all_benchmarks.sh",
-  "git_commit": "41d54486dabb59bead87b7fca263b3383bf51a05",
-  "git_describe": "v0.3.0",
-  "timestamp_utc": "2026-05-09T01:54:23Z",
+  "git_commit": "574b06212723c2e79f8eaddfc4b255fb7994ab8e",
+  "git_describe": "v0.3.0-1-g574b062",
+  "timestamp_utc": "2026-05-09T01:56:04Z",
   "os": "Windows 11",
   "python": "3.14.2",
   "dependencies": {
